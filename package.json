@@ -4,7 +4,11 @@
   "description": "Se volvio turbio",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "hardhat test",
+    "test:verbose": "hardhat test test/Counter.verbose.ts",
+    "compile": "hardhat compile",
+    "deploy:moonbase": "hardhat run scripts/deploy-moonbeam.ts --network moonbase",
+    "deploy:local": "hardhat run scripts/deploy-moonbeam.ts"
   },
   "repository": {
     "type": "git",

@@ -23,7 +23,7 @@ export default defineConfig({
     moonbase: {
       type: "http",
       url: "https://rpc.api.moonbase.moonbeam.network",
-      accounts: [process.env.MOONBASE_PRIVATE_KEY!],
+      accounts: [configVariable("MOONBASE_PRIVATE_KEY")],
       chainId: 1287,
     },
     hardhatMainnet: {
