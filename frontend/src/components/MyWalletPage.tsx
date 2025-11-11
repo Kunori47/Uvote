@@ -1,0 +1,568 @@
+import { useState } from "react";
+import {
+  Search,
+  ArrowUpDown,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+} from "lucide-react";
+import React from "react";
+
+interface PriceChange {
+  date: string;
+  price: number;
+}
+
+interface CreatorCoin {
+  id: string;
+  creatorName: string;
+  creatorAvatar: string;
+  coinName: string;
+  coinSymbol: string;
+  coinImage: string;
+  coinsOwned: number;
+  coinValue: number; // Valor de cada moneda
+  totalValue: number; // Valor total de las monedas que posee
+  totalInvested: number; // Lo que invirtió originalmente
+  category: string;
+  priceHistory: PriceChange[];
+  description: string;
+  lastPriceChange: string;
+}
+
+const mockCoins: CreatorCoin[] = [
+  {
+    id: "1",
+    creatorName: "Ibai",
+    creatorAvatar:
+      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
+    coinName: "Ibai Coin",
+    coinSymbol: "IBAI",
+    coinImage: "https://images.unsplash.com/photo-1624365168785-c65be9114821?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+    coinsOwned: 1000,
+    coinValue: 2.5,
+    totalValue: 2500,
+    totalInvested: 2000,
+    category: "Gaming",
+    description: "Moneda oficial del creador de contenido Ibai. Invierte en el futuro del gaming y entretenimiento.",
+    lastPriceChange: "2025-10-15",
+    priceHistory: [
+      { date: "2024-11-11", price: 2.5 },
+      { date: "2024-10-11", price: 2.3 },
+      { date: "2024-09-11", price: 2.1 },
+      { date: "2024-08-11", price: 2.0 },
+      { date: "2024-07-11", price: 1.8 },
+    ],
+  },
+  {
+    id: "2",
+    creatorName: "El Rubius",
+    creatorAvatar:
+      "https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=100&h=100&fit=crop",
+    coinName: "Rubius Coin",
+    coinSymbol: "RUBIUS",
+    coinImage: "https://images.unsplash.com/photo-1624365169873-d42588f4e866?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+    coinsOwned: 700,
+    coinValue: 3.8,
+    totalValue: 2660,
+    totalInvested: 2800,
+    category: "Gaming",
+    description: "Apoya a uno de los creadores más influyentes del gaming en español.",
+    lastPriceChange: "2025-10-20",
+    priceHistory: [
+      { date: "2024-11-11", price: 3.8 },
+      { date: "2024-10-11", price: 4.0 },
+      { date: "2024-09-11", price: 3.9 },
+      { date: "2024-08-11", price: 3.7 },
+      { date: "2024-07-11", price: 3.5 },
+    ],
+  },
+  {
+    id: "3",
+    creatorName: "AuronPlay",
+    creatorAvatar:
+      "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&h=100&fit=crop",
+    coinName: "Auron Coin",
+    coinSymbol: "AURON",
+    coinImage: "https://images.unsplash.com/photo-1665060221110-6dbe583fa329?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+    coinsOwned: 500,
+    coinValue: 4.2,
+    totalValue: 2100,
+    totalInvested: 1800,
+    category: "Entertainment",
+    description: "Invierte en el rey del entretenimiento y el humor en YouTube.",
+    lastPriceChange: "2025-09-28",
+    priceHistory: [
+      { date: "2024-11-11", price: 4.2 },
+      { date: "2024-10-11", price: 4.0 },
+      { date: "2024-09-11", price: 3.8 },
+      { date: "2024-08-11", price: 3.6 },
+      { date: "2024-07-11", price: 3.4 },
+    ],
+  },
+  {
+    id: "4",
+    creatorName: "ElSpreen",
+    creatorAvatar:
+      "https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100&h=100&fit=crop",
+    coinName: "Spreen Coin",
+    coinSymbol: "SPREEN",
+    coinImage: "https://images.unsplash.com/photo-1707075891530-30f9b3a6577c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+    coinsOwned: 850,
+    coinValue: 1.8,
+    totalValue: 1530,
+    totalInvested: 1700,
+    category: "Gaming",
+    description: "La nueva generación del gaming. Apoya a ElSpreen en su camino.",
+    lastPriceChange: "2025-10-05",
+    priceHistory: [
+      { date: "2024-11-11", price: 1.8 },
+      { date: "2024-10-11", price: 1.9 },
+      { date: "2024-09-11", price: 2.0 },
+      { date: "2024-08-11", price: 2.1 },
+      { date: "2024-07-11", price: 2.0 },
+    ],
+  },
+  {
+    id: "5",
+    creatorName: "Germán",
+    creatorAvatar:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop",
+    coinName: "German Coin",
+    coinSymbol: "GERMAN",
+    coinImage: "https://images.unsplash.com/photo-1632071865819-512bac164112?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+    coinsOwned: 300,
+    coinValue: 5.1,
+    totalValue: 1530,
+    totalInvested: 1500,
+    category: "Comedy",
+    description: "Invierte en uno de los pioneros del contenido en español.",
+    lastPriceChange: "2025-10-10",
+    priceHistory: [
+      { date: "2024-11-11", price: 5.1 },
+      { date: "2024-10-11", price: 5.0 },
+      { date: "2024-09-11", price: 4.8 },
+      { date: "2024-08-11", price: 4.6 },
+      { date: "2024-07-11", price: 4.5 },
+    ],
+  },
+  {
+    id: "6",
+    creatorName: "Coscu",
+    creatorAvatar:
+      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop",
+    coinName: "Coscu Coin",
+    coinSymbol: "COSCU",
+    coinImage: "https://images.unsplash.com/photo-1624365168785-c65be9114821?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+    coinsOwned: 450,
+    coinValue: 2.9,
+    totalValue: 1305,
+    totalInvested: 1400,
+    category: "Gaming",
+    description: "La moneda del CoscuArmy. Únete a la comunidad.",
+    lastPriceChange: "2025-09-18",
+    priceHistory: [
+      { date: "2024-11-11", price: 2.9 },
+      { date: "2024-10-11", price: 3.0 },
+      { date: "2024-09-11", price: 3.1 },
+      { date: "2024-08-11", price: 3.0 },
+      { date: "2024-07-11", price: 2.8 },
+    ],
+  },
+  {
+    id: "7",
+    creatorName: "Luzu",
+    creatorAvatar:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
+    coinName: "Luzu Coin",
+    coinSymbol: "LUZU",
+    coinImage: "https://images.unsplash.com/photo-1624365169873-d42588f4e866?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+    coinsOwned: 600,
+    coinValue: 1.95,
+    totalValue: 1170,
+    totalInvested: 1200,
+    category: "Entertainment",
+    description: "Apoya a Luzu en sus proyectos de entretenimiento.",
+    lastPriceChange: "2025-10-22",
+    priceHistory: [
+      { date: "2024-11-11", price: 1.95 },
+      { date: "2024-10-11", price: 2.0 },
+      { date: "2024-09-11", price: 2.1 },
+      { date: "2024-08-11", price: 2.0 },
+      { date: "2024-07-11", price: 1.9 },
+    ],
+  },
+  {
+    id: "8",
+    creatorName: "Reven",
+    creatorAvatar:
+      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop",
+    coinName: "Reven Coin",
+    coinSymbol: "REVEN",
+    coinImage: "https://images.unsplash.com/photo-1665060221110-6dbe583fa329?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400",
+    coinsOwned: 200,
+    coinValue: 3.2,
+    totalValue: 640,
+    totalInvested: 600,
+    category: "Sports",
+    description: "Invierte en el futuro del contenido deportivo.",
+    lastPriceChange: "2025-10-01",
+    priceHistory: [
+      { date: "2024-11-11", price: 3.2 },
+      { date: "2024-10-11", price: 3.0 },
+      { date: "2024-09-11", price: 2.9 },
+      { date: "2024-08-11", price: 2.8 },
+      { date: "2024-07-11", price: 2.7 },
+    ],
+  },
+];
+
+type SortOption =
+  | "coins-desc"
+  | "coins-asc"
+  | "value-desc"
+  | "value-asc"
+  | "change-desc"
+  | "change-asc";
+
+const sortOptions = [
+  { id: "coins-desc" as SortOption, label: "Más monedas" },
+  { id: "coins-asc" as SortOption, label: "Menos monedas" },
+  { id: "value-desc" as SortOption, label: "Mayor valor" },
+  { id: "value-asc" as SortOption, label: "Menor valor" },
+  {
+    id: "change-desc" as SortOption,
+    label: "Mayor ganancia %",
+  },
+  { id: "change-asc" as SortOption, label: "Mayor pérdida %" },
+];
+
+interface MyWalletPageProps {
+  onViewCoin?: (coinId: string) => void;
+}
+
+export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
+  const [sortBy, setSortBy] =
+    useState<SortOption>("coins-desc");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSortMenu, setShowSortMenu] = useState(false);
+
+  // Statistics
+  const stats = {
+    totalCreators: mockCoins.length,
+    totalCoins: mockCoins.reduce(
+      (sum, coin) => sum + coin.coinsOwned,
+      0,
+    ),
+    totalValue: mockCoins.reduce(
+      (sum, coin) => sum + coin.totalValue,
+      0,
+    ),
+    totalInvested: mockCoins.reduce(
+      (sum, coin) => sum + coin.totalInvested,
+      0,
+    ),
+  };
+
+  const profitLoss = stats.totalValue - stats.totalInvested;
+  const profitLossPercentage = (
+    (profitLoss / stats.totalInvested) *
+    100
+  ).toFixed(2);
+
+  // Filter and sort
+  const filteredAndSortedCoins = mockCoins
+    .filter((coin) =>
+      coin.creatorName
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()),
+    )
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "coins-desc":
+          return b.coinsOwned - a.coinsOwned;
+        case "coins-asc":
+          return a.coinsOwned - b.coinsOwned;
+        case "value-desc":
+          return b.totalValue - a.totalValue;
+        case "value-asc":
+          return a.totalValue - b.totalValue;
+        default:
+          return 0;
+      }
+    });
+
+  return (
+    <div className="p-6">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-slate-100 mb-6">My Wallet</h1>
+
+        {/* Portfolio Summary */}
+        <div className="bg-gradient-to-br from-slate-900/50 to-slate-900/30 border border-slate-800/50 rounded-xl p-6 mb-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 bg-emerald-500/20 border border-emerald-500/30 rounded-xl flex items-center justify-center">
+              <Wallet className="w-6 h-6 text-emerald-400" />
+            </div>
+            <div>
+              <div className="text-slate-400 text-sm">
+                Valor Total del Portfolio
+              </div>
+              <div className="text-slate-100 text-2xl">
+                {stats.totalValue.toLocaleString()}u
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div>
+              <div className="text-slate-500 text-sm mb-1">
+                Creadores
+              </div>
+              <div className="text-slate-100">
+                {stats.totalCreators}
+              </div>
+            </div>
+            <div>
+              <div className="text-slate-500 text-sm mb-1">
+                Total Monedas
+              </div>
+              <div className="text-slate-100">
+                {stats.totalCoins.toLocaleString()}
+              </div>
+            </div>
+            <div>
+              <div className="text-slate-500 text-sm mb-1">
+                Invertido
+              </div>
+              <div className="text-slate-100">
+                {stats.totalInvested.toLocaleString()}u
+              </div>
+            </div>
+            <div>
+              <div className="text-slate-500 text-sm mb-1">
+                Ganancia/Pérdida
+              </div>
+              <div
+                className={
+                  profitLoss >= 0
+                    ? "text-emerald-400"
+                    : "text-red-400"
+                }
+              >
+                {profitLoss >= 0 ? "+" : ""}
+                {profitLoss.toLocaleString()}u
+              </div>
+            </div>
+            <div>
+              <div className="text-slate-500 text-sm mb-1">
+                Rendimiento
+              </div>
+              <div
+                className={
+                  profitLoss >= 0
+                    ? "text-emerald-400"
+                    : "text-red-400"
+                }
+              >
+                {profitLoss >= 0 ? "+" : ""}
+                {profitLossPercentage}%
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Search and Sort */}
+        <div className="flex items-center gap-3 mb-4">
+          {/* Search */}
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Buscar creador..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-slate-900/50 border border-slate-800/50 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50 transition-colors"
+            />
+          </div>
+
+          {/* Sort */}
+          <div className="relative">
+            <button
+              onClick={() => setShowSortMenu(!showSortMenu)}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-900/50 border border-slate-800/50 rounded-xl text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 transition-all whitespace-nowrap"
+            >
+              <ArrowUpDown className="w-4 h-4" />
+              <span>Ordenar</span>
+            </button>
+
+            {showSortMenu && (
+              <div className="absolute right-0 top-full mt-2 w-56 bg-slate-900 border border-slate-800/50 rounded-xl shadow-xl z-10">
+                {sortOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() => {
+                      setSortBy(option.id);
+                      setShowSortMenu(false);
+                    }}
+                    className={`w-full text-left px-4 py-2.5 text-sm transition-all first:rounded-t-xl last:rounded-b-xl ${
+                      sortBy === option.id
+                        ? "bg-emerald-500/20 text-emerald-400"
+                        : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Coins List */}
+      <div className="space-y-3">
+        {filteredAndSortedCoins.length === 0 ? (
+          <div className="text-center py-12 text-slate-500">
+            No se encontraron monedas de creadores
+          </div>
+        ) : (
+          filteredAndSortedCoins.map((coin) => {
+            const profitLoss =
+              coin.totalValue - coin.totalInvested;
+            const profitLossPercentage = (
+              (profitLoss / coin.totalInvested) *
+              100
+            ).toFixed(2);
+
+            return (
+              <div
+                key={coin.id}
+                onClick={() => onViewCoin?.(coin.id)}
+                className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4 hover:bg-slate-900/50 hover:border-slate-700/50 transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-4">
+                  {/* Coin Image */}
+                  <div className="flex-shrink-0">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-slate-800/50 to-slate-900/50 border-2 border-slate-700/50 flex items-center justify-center overflow-hidden">
+                      <img
+                        src={coin.coinImage}
+                        alt={coin.coinName}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Coin Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-1">
+                      <h3 className="text-slate-100">
+                        {coin.coinName}
+                      </h3>
+                      <span className="px-2 py-0.5 bg-slate-800/50 border border-slate-700/50 rounded text-slate-400 text-xs">
+                        {coin.coinSymbol}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-400 text-sm">
+                        por {coin.creatorName}
+                      </span>
+                      <span className="text-slate-600">•</span>
+                      <span className="px-2 py-0.5 bg-slate-800/30 border border-slate-700/30 rounded text-slate-500 text-xs">
+                        {coin.category}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Coins Owned - Prominent Display */}
+                  <div className="flex-shrink-0 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                    <div className="text-emerald-400/70 text-xs mb-0.5">
+                      Tengo
+                    </div>
+                    <div className="text-emerald-400 text-xl">
+                      {coin.coinsOwned.toLocaleString()}
+                    </div>
+                    <div className="text-emerald-400/60 text-xs">
+                      {coin.coinSymbol}
+                    </div>
+                  </div>
+
+                  {/* Stats Grid */}
+                  <div className="hidden md:grid grid-cols-5 gap-8 flex-shrink-0">
+                    {/* Coin Value */}
+                    <div>
+                      <div className="text-slate-500 text-sm mb-1">
+                        Valor/Moneda
+                      </div>
+                      <div className="text-slate-200">
+                        {coin.coinValue.toFixed(2)}u
+                      </div>
+                    </div>
+
+                    {/* Total Invested */}
+                    <div>
+                      <div className="text-slate-500 text-sm mb-1">
+                        Invertido
+                      </div>
+                      <div className="text-slate-200">
+                        {coin.totalInvested.toLocaleString()}u
+                      </div>
+                    </div>
+
+                    {/* Total Value */}
+                    <div>
+                      <div className="text-slate-500 text-sm mb-1">
+                        Valor Total
+                      </div>
+                      <div className="text-slate-100">
+                        {coin.totalValue.toLocaleString()}u
+                      </div>
+                    </div>
+
+                    {/* Profit/Loss */}
+                    <div>
+                      <div className="text-slate-500 text-sm mb-1">
+                        Ganancia/Pérdida
+                      </div>
+                      <div>
+                        <div
+                          className={
+                            profitLoss >= 0
+                              ? "text-emerald-400"
+                              : "text-red-400"
+                          }
+                        >
+                          {profitLoss >= 0 ? "+" : ""}
+                          {profitLoss.toLocaleString()}u
+                        </div>
+                        <div
+                          className={`text-xs ${profitLoss >= 0 ? "text-emerald-400/70" : "text-red-400/70"}`}
+                        >
+                          ({profitLoss >= 0 ? "+" : ""}
+                          {profitLossPercentage}%)
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mobile Stats */}
+                  <div className="md:hidden flex-shrink-0 text-right">
+                    <div className="text-slate-100 mb-1">
+                      {coin.totalValue.toLocaleString()}u
+                    </div>
+                    <div
+                      className={`text-sm ${profitLoss >= 0 ? "text-emerald-400" : "text-red-400"}`}
+                    >
+                      {profitLoss >= 0 ? "+" : ""}
+                      {profitLossPercentage}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
