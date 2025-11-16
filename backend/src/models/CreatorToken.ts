@@ -33,13 +33,16 @@ export const CreatorTokenModel = {
    * Crear o actualizar token
    */
   async upsert(token: CreatorToken): Promise<CreatorToken> {
-    const result = await supabase?.from('creator_tokens').insert({
+    const result = await supabase?.from('creator_tokens').upsert({
       token_address: token.token_address.toLowerCase(),
       creator_address: token.creator_address.toLowerCase(),
       name: token.name,
       symbol: token.symbol,
       coin_image_url: token.coin_image_url,
       description: token.description,
+    }, {
+      onConflict: 'token_address',
+      ignoreDuplicates: false,
     }).select().single();
     return result?.data?.[0] || null;
   },

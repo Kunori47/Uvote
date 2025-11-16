@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Search,
   ArrowUpDown,
@@ -6,10 +6,12 @@ import {
   TrendingDown,
   Wallet,
   Loader2,
+  Coins,
 } from "lucide-react";
 import React from "react";
 import { useWallet } from "../hooks/useWallet";
 import { useUserTokens } from "../hooks/useUserTokens";
+import { apiService } from "../lib/apiService";
 
 interface PriceChange {
   date: string;
@@ -252,6 +254,73 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
   // Obtener wallet y tokens reales
   const { address, isConnected } = useWallet();
   const { tokens: userTokens, loading, error } = useUserTokens(address);
+  
+  // Estados para metadata de tokens desde Supabase
+  const [tokenImages, setTokenImages] = useState<Record<string, string>>({});
+  const [creatorProfiles, setCreatorProfiles] = useState<Record<string, { displayName: string; avatarUrl: string }>>({});
+  const [loadingMetadata, setLoadingMetadata] = useState(false);
+
+  // Cargar imágenes de monedas y perfiles de creadores desde Supabase
+  useEffect(() => {
+    const loadTokenMetadata = async () => {
+      if (userTokens.length === 0) {
+        setLoadingMetadata(false);
+        return;
+      }
+      
+      try {
+        setLoadingMetadata(true);
+        const images: Record<string, string> = {};
+        const profiles: Record<string, { displayName: string; avatarUrl: string }> = {};
+        
+        // Cargar metadata para cada token
+        for (const token of userTokens) {
+          // Obtener imagen de la moneda
+          try {
+            const tokenData = await apiService.getToken(token.tokenAddress);
+            if (tokenData?.coin_image_url) {
+              images[token.tokenAddress] = tokenData.coin_image_url;
+            }
+          } catch (err) {
+            console.error(`Error cargando imagen del token ${token.tokenAddress}:`, err);
+          }
+          
+          // Obtener perfil del creador (solo si no lo hemos cargado ya)
+          if (!profiles[token.creatorAddress]) {
+            try {
+              const creatorData = await apiService.getUser(token.creatorAddress);
+              if (creatorData) {
+                profiles[token.creatorAddress] = {
+                  displayName: creatorData.display_name || creatorData.username || `${token.creatorAddress.slice(0, 6)}...${token.creatorAddress.slice(-4)}`,
+                  avatarUrl: creatorData.profile_image_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${token.creatorAddress}`,
+                };
+              } else {
+                profiles[token.creatorAddress] = {
+                  displayName: `${token.creatorAddress.slice(0, 6)}...${token.creatorAddress.slice(-4)}`,
+                  avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${token.creatorAddress}`,
+                };
+              }
+            } catch (err) {
+              console.error(`Error cargando perfil del creador ${token.creatorAddress}:`, err);
+              profiles[token.creatorAddress] = {
+                displayName: `${token.creatorAddress.slice(0, 6)}...${token.creatorAddress.slice(-4)}`,
+                avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${token.creatorAddress}`,
+              };
+            }
+          }
+        }
+        
+        setTokenImages(images);
+        setCreatorProfiles(profiles);
+      } catch (err) {
+        console.error('Error cargando metadata de tokens:', err);
+      } finally {
+        setLoadingMetadata(false);
+      }
+    };
+    
+    loadTokenMetadata();
+  }, [userTokens]);
 
   // Statistics (calculadas desde tokens reales)
   const stats = {
@@ -308,7 +377,7 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
                 Valor Total del Portfolio
               </div>
               <div className="text-slate-100 text-2xl">
-                {stats.totalValue.toLocaleString()}u
+                {stats.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} DOT
               </div>
             </div>
           </div>
@@ -335,7 +404,7 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
                 Invertido
               </div>
               <div className="text-slate-100">
-                {stats.totalInvested.toLocaleString()}u
+                {stats.totalInvested.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} DOT
               </div>
             </div>
             <div>
@@ -350,22 +419,7 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
                 }
               >
                 {profitLoss >= 0 ? "+" : ""}
-                {profitLoss.toLocaleString()}u
-              </div>
-            </div>
-            <div>
-              <div className="text-slate-500 text-sm mb-1">
-                Rendimiento
-              </div>
-              <div
-                className={
-                  profitLoss >= 0
-                    ? "text-emerald-400"
-                    : "text-red-400"
-                }
-              >
-                {profitLoss >= 0 ? "+" : ""}
-                {profitLossPercentage}%
+                {profitLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} DOT
               </div>
             </div>
           </div>
@@ -427,10 +481,12 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
             <p className="text-slate-400 mb-2">Conecta tu wallet para ver tus tokens</p>
             <p className="text-slate-500 text-sm">Usa SubWallet o MetaMask</p>
           </div>
-        ) : loading ? (
+        ) : loading || loadingMetadata ? (
           <div className="text-center py-12">
             <Loader2 className="w-8 h-8 text-emerald-400 animate-spin mx-auto mb-4" />
-            <p className="text-slate-400">Cargando tus tokens...</p>
+            <p className="text-slate-400">
+              {loading ? 'Cargando tus tokens desde blockchain...' : 'Cargando información de creadores...'}
+            </p>
           </div>
         ) : error ? (
           <div className="text-center py-12">
@@ -454,7 +510,15 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
                   {/* Coin Image */}
                   <div className="flex-shrink-0">
                     <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-600/20 to-slate-900/50 border-2 border-emerald-500/30 flex items-center justify-center overflow-hidden">
-                      <span className="text-2xl text-emerald-400">{token.symbol[0]}</span>
+                      {tokenImages[token.tokenAddress] ? (
+                        <img 
+                          src={tokenImages[token.tokenAddress]} 
+                          alt={token.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Coins className="w-8 h-8 text-emerald-400" />
+                      )}
                     </div>
                   </div>
 
@@ -470,11 +534,15 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-slate-400 text-sm">
-                        {token.creatorAddress.slice(0, 6)}...{token.creatorAddress.slice(-4)}
+                        {creatorProfiles[token.creatorAddress]?.displayName || `${token.creatorAddress.slice(0, 6)}...${token.creatorAddress.slice(-4)}`}
                       </span>
                       <span className="text-slate-600">•</span>
                       <span className="px-2 py-0.5 bg-emerald-800/30 border border-emerald-700/30 rounded text-emerald-500 text-xs">
                         On-Chain
+                      </span>
+                      <span className="text-slate-600">•</span>
+                      <span className="text-slate-500 text-xs">
+                        {token.symbol}
                       </span>
                     </div>
                   </div>
@@ -503,7 +571,7 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
                         Precio
                       </div>
                       <div className="text-slate-200">
-                        {parseFloat(token.price).toFixed(4)} ETH
+                        {parseFloat(token.price).toFixed(4)} DOT
                       </div>
                     </div>
 
@@ -513,7 +581,7 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
                         Valor Total
                       </div>
                       <div className="text-slate-100">
-                        {parseFloat(token.totalValue).toFixed(4)} ETH
+                        {parseFloat(token.totalValue).toFixed(4)} DOT
                       </div>
                     </div>
 
@@ -531,10 +599,10 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
                   {/* Mobile Stats */}
                   <div className="md:hidden flex-shrink-0 text-right">
                     <div className="text-slate-100 mb-1">
-                      {parseFloat(token.totalValue).toFixed(4)} ETH
+                      {parseFloat(token.totalValue).toFixed(4)} DOT
                     </div>
                     <div className="text-slate-400 text-sm">
-                      @ {parseFloat(token.price).toFixed(4)} ETH
+                      @ {parseFloat(token.price).toFixed(4)} DOT
                     </div>
                   </div>
                 </div>

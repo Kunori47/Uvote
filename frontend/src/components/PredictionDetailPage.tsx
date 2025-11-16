@@ -543,20 +543,41 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
 
           {/* Contador de cooldown destacado */}
           {prediction.status === 2 && cooldownRemaining > 0 && (
-            <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-              <div className="flex items-center gap-3">
-                <Clock className="w-6 h-6 text-yellow-400" />
-                <div className="flex-1">
-                  <p className="text-yellow-400 font-medium">Período de Cooldown Activo</p>
-                  <p className="text-yellow-300/80 text-sm">
-                    Tiempo restante para reportar fraude
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="text-3xl font-bold font-mono text-yellow-400">
-                    {formatCooldownTime(cooldownRemaining)}
+            <div className="mt-4 space-y-3">
+              {/* Opción Ganadora */}
+              {prediction.winningOption >= 0 && prediction.winningOption < prediction.options.length && (
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="w-6 h-6 text-emerald-400 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-emerald-400 font-medium mb-1">Opción Ganadora Declarada</p>
+                      <p className="text-white text-lg font-semibold">
+                        {prediction.options[prediction.winningOption].description}
+                      </p>
+                      <p className="text-white text-xs mt-1">
+                        Verifica si este resultado es correcto. Si no lo es, puedes reportarlo durante el período de cooldown.
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-yellow-300/60 text-xs">hasta confirmar</p>
+                </div>
+              )}
+              
+              {/* Contador de Cooldown */}
+              <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Clock className="w-6 h-6 text-yellow-400" />
+                  <div className="flex-1">
+                    <p className="text-yellow-400 font-medium">Período de Cooldown Activo</p>
+                    <p className="text-white text-sm">
+                      Tiempo restante para reportar fraude
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-3xl font-bold font-mono text-yellow-400">
+                      {formatCooldownTime(cooldownRemaining)}
+                    </div>
+                    <p className="text-white text-xs">hasta confirmar</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -609,18 +630,34 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
         <div className="lg:col-span-2">
           <h2 className="text-xl font-bold text-slate-100 mb-4">Opciones</h2>
           <div className="space-y-3">
-            {prediction.options.map((option) => (
+            {prediction.options.map((option) => {
+              // Determinar si esta opción es la ganadora (cuando está en cooldown o confirmada)
+              const isWinner = (prediction.status === 2 || prediction.status === 3 || prediction.status === 4) 
+                && prediction.winningOption >= 0 
+                && option.index === prediction.winningOption;
+              
+              return (
               <div
                 key={option.index}
                 onClick={() => isActive && setSelectedOption(option.index)}
                 className={`bg-slate-900/50 border rounded-xl p-4 transition-all cursor-pointer ${
-                  selectedOption === option.index
+                  isWinner
+                    ? 'border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/30'
+                    : selectedOption === option.index
                     ? 'border-emerald-500 bg-emerald-500/10'
                     : 'border-slate-800/50 hover:border-slate-700'
                 } ${!isActive && 'opacity-50 cursor-not-allowed'}`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-slate-100 font-medium">{option.description}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-white font-medium">{option.description}</h3>
+                    {isWinner && (
+                      <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/20 border border-emerald-500/40 rounded-full">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-400 text-xs font-medium">Ganadora</span>
+                      </div>
+                    )}
+                  </div>
                   <span className="text-emerald-400 font-semibold">{option.percentage.toFixed(1)}%</span>
                 </div>
                 
@@ -639,7 +676,8 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
                   <span className="text-slate-500">{option.totalBettors} apostadores</span>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
 
           {/* User's Bets */}
@@ -679,11 +717,6 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
                 <p className="text-slate-400 text-sm mb-4">
                   Como creador, no puedes apostar en tu propia predicción. Solo puedes gestionarla (cerrarla y resolverla).
                 </p>
-                <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                  <p className="text-blue-400 text-sm">
-                    Ve a "Mis Uvotes" para gestionar esta predicción
-                  </p>
-                </div>
               </div>
             ) : !isActive ? (
               <div className="text-center py-6">
@@ -787,11 +820,11 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
                   <div className="mb-4 p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
                     <div className="flex items-center gap-3 mb-3">
                       <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
-                        <CheckCircle2 className="w-6 h-6 text-green-400" />
+                        <CheckCircle2 className="w-6 h-6 text-emerald-400" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-green-400 font-bold text-lg mb-1">¡Acertaste! 🎉</h3>
-                        <p className="text-slate-300 text-sm">
+                        <h3 className="text-emerald-400 font-bold text-lg mb-1">¡Acertaste! 🎉</h3>
+                        <p className="text-white text-sm">
                           Tu apuesta fue correcta. Puedes reclamar tus ganancias.
                         </p>
                       </div>
@@ -803,7 +836,7 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
                         {isCalculatingReward ? (
                           <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
                         ) : (
-                          <span className="text-green-400 font-bold text-lg">
+                          <span className="text-emerald-400 font-bold text-lg">
                             {claimableAmount} {prediction.creatorTokenSymbol}
                           </span>
                         )}
@@ -862,9 +895,23 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Mostrar opción ganadora declarada */}
+                    {prediction.winningOption >= 0 && prediction.winningOption < prediction.options.length && (
+                      <div className="mb-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+                        <div className="flex items-center gap-2 mb-1">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                          <span className="text-emerald-400 text-xs font-medium">Resultado Declarado:</span>
+                        </div>
+                        <p className="text-white font-semibold text-sm">
+                          {prediction.options[prediction.winningOption].description}
+                        </p>
+                      </div>
+                    )}
+                    
                     <p className="text-slate-400 text-sm mb-3">
                       {cooldownRemaining > 0 
-                        ? 'Si crees que el resultado es incorrecto, puedes reportarlo durante este período.'
+                        ? 'Si crees que el resultado declarado es incorrecto, puedes reportarlo durante este período.'
                         : 'El cooldown ha terminado. La predicción se confirmará automáticamente.'
                       }
                     </p>

@@ -4,6 +4,7 @@ import { PredictionCard } from './PredictionCard';
 import { usePredictions } from '../hooks/usePredictions';
 import { apiService } from '../lib/apiService';
 import { CONTRACT_ADDRESSES, NETWORK_CONFIG } from '../lib/contracts';
+import { predictionMarketService, creatorTokenService } from '../lib/contractService';
 
 interface PredictionOption {
   id: string;
@@ -143,19 +144,29 @@ interface PredictionFeedProps {
 export function PredictionFeed({ category, onViewPrediction }: PredictionFeedProps) {
   const { predictions: blockchainPredictions, loading, error } = usePredictions();
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
+  const [predictionTags, setPredictionTags] = useState<Record<string, string[]>>({});
+  const [creatorProfiles, setCreatorProfiles] = useState<Record<string, {
+    displayName: string;
+    avatarUrl: string;
+  }>>({});
+  const [predictionTokenSymbols, setPredictionTokenSymbols] = useState<Record<string, string>>({});
+  const [loadingProfiles, setLoadingProfiles] = useState(false);
+  const [loadingTokenSymbols, setLoadingTokenSymbols] = useState(false);
 
-  // Cargar imágenes desde Supabase para cada predicción
+  // Cargar imágenes y tags desde Supabase para cada predicción
   useEffect(() => {
     let cancelled = false;
 
-    const loadImages = async () => {
+    const loadImagesAndTags = async () => {
       if (!blockchainPredictions || blockchainPredictions.length === 0) {
         setThumbnails({});
+        setPredictionTags({});
         return;
       }
 
       try {
-        const entries: Array<[string, string]> = [];
+        const imageEntries: Array<[string, string]> = [];
+        const tagEntries: Array<[string, string[]]> = [];
 
         await Promise.all(
           blockchainPredictions.map(async (pred) => {
@@ -164,25 +175,172 @@ export function PredictionFeed({ category, onViewPrediction }: PredictionFeedPro
               CONTRACT_ADDRESSES.PredictionMarket,
               NETWORK_CONFIG.chainId
             );
-            if (img && img.image_url) {
-              entries.push([pred.id, img.image_url as string]);
+            if (img) {
+              if (img.image_url) {
+                imageEntries.push([pred.id, img.image_url as string]);
+              }
+              // Cargar tags si existen
+              if (img.tags && Array.isArray(img.tags) && img.tags.length > 0) {
+                tagEntries.push([pred.id, img.tags as string[]]);
+              }
             }
           })
         );
 
         if (!cancelled) {
-          const map: Record<string, string> = {};
-          for (const [id, url] of entries) {
-            map[id] = url;
+          const imageMap: Record<string, string> = {};
+          for (const [id, url] of imageEntries) {
+            imageMap[id] = url;
           }
-          setThumbnails(map);
+          setThumbnails(imageMap);
+
+          const tagMap: Record<string, string[]> = {};
+          for (const [id, tags] of tagEntries) {
+            tagMap[id] = tags;
+          }
+          setPredictionTags(tagMap);
         }
       } catch (e) {
-        console.error('Error loading prediction thumbnails:', e);
+        console.error('Error loading prediction thumbnails and tags:', e);
       }
     };
 
-    loadImages();
+    loadImagesAndTags();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [blockchainPredictions]);
+
+  // Cargar perfiles de creadores desde la BD
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCreatorProfiles = async () => {
+      if (!blockchainPredictions || blockchainPredictions.length === 0) {
+        setCreatorProfiles({});
+        setLoadingProfiles(false);
+        return;
+      }
+
+      try {
+        setLoadingProfiles(true);
+        // Obtener direcciones únicas de creadores
+        const uniqueCreators = Array.from(
+          new Set(blockchainPredictions.map(pred => pred.creator.toLowerCase()))
+        );
+
+        // Cargar perfiles en paralelo
+        const profileEntries: Array<[string, { displayName: string; avatarUrl: string }]> = [];
+
+        await Promise.all(
+          uniqueCreators.map(async (creatorAddress) => {
+            try {
+              const user = await apiService.getUser(creatorAddress);
+              
+              if (user) {
+                const displayName =
+                  user.display_name ||
+                  (user.username ? `@${user.username}` : `${creatorAddress.slice(0, 6)}...${creatorAddress.slice(-4)}`);
+                const avatarUrl =
+                  user.profile_image_url ||
+                  `https://api.dicebear.com/7.x/avataaars/svg?seed=${creatorAddress}`;
+                
+                profileEntries.push([creatorAddress.toLowerCase(), { displayName, avatarUrl }]);
+              } else {
+                // Si no hay usuario en BD, usar fallback
+                const shortAddr = `${creatorAddress.slice(0, 6)}...${creatorAddress.slice(-4)}`;
+                profileEntries.push([
+                  creatorAddress.toLowerCase(),
+                  {
+                    displayName: shortAddr,
+                    avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${creatorAddress}`,
+                  },
+                ]);
+              }
+            } catch (e) {
+              // En caso de error, usar fallback
+              console.error(`Error loading creator profile for ${creatorAddress}:`, e);
+              const shortAddr = `${creatorAddress.slice(0, 6)}...${creatorAddress.slice(-4)}`;
+              profileEntries.push([
+                creatorAddress.toLowerCase(),
+                {
+                  displayName: shortAddr,
+                  avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${creatorAddress}`,
+                },
+              ]);
+            }
+          })
+        );
+
+        if (!cancelled) {
+          const map: Record<string, { displayName: string; avatarUrl: string }> = {};
+          for (const [address, profile] of profileEntries) {
+            map[address] = profile;
+          }
+          setCreatorProfiles(map);
+          setLoadingProfiles(false);
+        }
+      } catch (e) {
+        console.error('Error loading creator profiles:', e);
+        if (!cancelled) {
+          setLoadingProfiles(false);
+        }
+      }
+    };
+
+    loadCreatorProfiles();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [blockchainPredictions]);
+
+  // Cargar símbolos de tokens de creadores
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadTokenSymbols = async () => {
+      if (!blockchainPredictions || blockchainPredictions.length === 0) {
+        setPredictionTokenSymbols({});
+        setLoadingTokenSymbols(false);
+        return;
+      }
+
+      try {
+        setLoadingTokenSymbols(true);
+        const symbolMap: Record<string, string> = {};
+
+        await Promise.all(
+          blockchainPredictions.map(async (pred) => {
+            try {
+              const predictionData = await predictionMarketService.getPrediction(pred.id);
+              if (predictionData && predictionData.creatorToken) {
+                const tokenInfo = await creatorTokenService.getTokenInfo(predictionData.creatorToken);
+                symbolMap[pred.id] = tokenInfo.symbol;
+              } else {
+                symbolMap[pred.id] = 'uVotes'; // Fallback
+              }
+            } catch (err) {
+              console.error(`Error loading token symbol for prediction ${pred.id}:`, err);
+              symbolMap[pred.id] = 'uVotes'; // Fallback
+            }
+          })
+        );
+
+        if (!cancelled) {
+          setPredictionTokenSymbols(symbolMap);
+          setLoadingTokenSymbols(false);
+        }
+      } catch (e) {
+        console.error('Error loading token symbols:', e);
+        if (!cancelled) {
+          setLoadingTokenSymbols(false);
+        }
+      }
+    };
+
+    loadTokenSymbols();
 
     return () => {
       cancelled = true;
@@ -220,24 +378,39 @@ export function PredictionFeed({ category, onViewPrediction }: PredictionFeedPro
         votes: parseFloat(opt.totalAmount),
       }));
 
-      // Determinar categoría basada en keywords en el título (temporal)
+      // Determinar categoría: primero usar tags desde Supabase, luego fallback a keywords
       let predCategory = 'other';
-      const title = pred.title.toLowerCase();
-      if (title.includes('deporte') || title.includes('fútbol') || title.includes('madrid')) {
-        predCategory = 'sports';
-      } else if (title.includes('juego') || title.includes('gaming') || title.includes('gta')) {
-        predCategory = 'gaming';
-      } else if (title.includes('crypto') || title.includes('bitcoin') || title.includes('eth')) {
-        predCategory = 'crypto';
-      } else if (title.includes('tech') || title.includes('tecnología') || title.includes('iphone')) {
-        predCategory = 'tech';
+      const tags = predictionTags[pred.id];
+      
+      if (tags && tags.length > 0) {
+        // Si hay tags, usar el primer tag como categoría principal
+        predCategory = tags[0];
+      } else {
+        // Fallback: determinar categoría basada en keywords en el título (solo si no hay tags)
+        const title = pred.title.toLowerCase();
+        if (title.includes('deporte') || title.includes('fútbol') || title.includes('madrid')) {
+          predCategory = 'sports';
+        } else if (title.includes('juego') || title.includes('gaming') || title.includes('gta')) {
+          predCategory = 'gaming';
+        } else if (title.includes('crypto') || title.includes('bitcoin') || title.includes('eth')) {
+          predCategory = 'crypto';
+        } else if (title.includes('tech') || title.includes('tecnología') || title.includes('iphone')) {
+          predCategory = 'tech';
+        }
       }
+
+      // Obtener perfil del creador (o usar fallback)
+      const creatorAddressLower = pred.creator.toLowerCase();
+      const creatorProfile = creatorProfiles[creatorAddressLower] || {
+        displayName: `${pred.creator.slice(0, 6)}...${pred.creator.slice(-4)}`,
+        avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${pred.creator}`,
+      };
 
       return {
         id: pred.id,
         creator: {
-          name: `${pred.creator.slice(0, 6)}...${pred.creator.slice(-4)}`,
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${pred.creator}`,
+          name: creatorProfile.displayName,
+          avatar: creatorProfile.avatarUrl,
           verified: true, // TODO: Verificar desde CreatorTokenFactory si está activo
         },
         question: pred.title,
@@ -248,29 +421,50 @@ export function PredictionFeed({ category, onViewPrediction }: PredictionFeedPro
         thumbnail:
           thumbnails[pred.id] ||
           `https://api.dicebear.com/7.x/shapes/svg?seed=${pred.id}`, // Placeholder si no hay imagen
+        creatorTokenSymbol: predictionTokenSymbols[pred.id] || 'uVotes', // Símbolo del token del creador
       };
     });
-  }, [blockchainPredictions, thumbnails]);
+  }, [blockchainPredictions, thumbnails, creatorProfiles, predictionTags, predictionTokenSymbols]);
 
-  // Filtrar por categoría
+  // Filtrar por categoría (usando tags guardados en Supabase)
   const filteredPredictions = useMemo(() => {
-    if (category === 'trending') {
+    // Si la categoría es 'todos' o 'trending', mostrar todas las predicciones
+    if (category === 'todos' || category === 'trending') {
       return formattedPredictions;
     }
-    return formattedPredictions.filter((p) => p.category === category);
-  }, [formattedPredictions, category]);
+    
+    return formattedPredictions.filter((p) => {
+      // Primero verificar si la categoría coincide directamente
+      if (p.category === category) {
+        return true;
+      }
+      
+      // También verificar si alguno de los tags de la predicción coincide con la categoría
+      const tags = predictionTags[p.id];
+      if (tags && tags.includes(category)) {
+        return true;
+      }
+      
+      return false;
+    });
+  }, [formattedPredictions, category, predictionTags]);
 
-  // Fallback a mocks si no hay predicciones reales (para desarrollo)
-  const displayPredictions = filteredPredictions.length > 0 
+  // Mostrar loading si está cargando predicciones O perfiles de creadores O símbolos de tokens
+  const isLoading = loading || loadingProfiles || loadingTokenSymbols;
+
+  // Fallback a mocks solo si no hay predicciones reales Y no está cargando
+  const displayPredictions = !isLoading && filteredPredictions.length > 0 
     ? filteredPredictions 
-    : (category === 'trending' ? mockPredictions : mockPredictions.filter(p => p.category === category));
+    : (!isLoading && (category === 'todos' || category === 'trending') ? mockPredictions : (!isLoading ? mockPredictions.filter(p => p.category === category) : []));
 
   return (
     <div className="p-8">
-      {loading ? (
+      {isLoading ? (
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mb-4" />
-          <p className="text-slate-400">Cargando predicciones desde blockchain...</p>
+          <p className="text-slate-400">
+            {loading ? 'Cargando predicciones desde blockchain...' : 'Cargando información de creadores...'}
+          </p>
         </div>
       ) : error ? (
         <div className="flex flex-col items-center justify-center py-20">

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, ArrowUpDown, Users, TrendingUp, Loader2, UserMinus, Wallet } from 'lucide-react';
 import React from 'react';
 import { useWallet } from '../hooks/useWallet';
 import { useSubscriptions } from '../hooks/useSubscriptions';
 import { useUserTokens } from '../hooks/useUserTokens';
+import { factoryService, creatorTokenService } from '../lib/contractService';
 
 interface SubscriptionDisplay {
   id: string;
@@ -13,6 +14,8 @@ interface SubscriptionDisplay {
   followedSince: string;
   hasCreatorCoin: boolean;
   coinBalance?: string;
+  coinName?: string;
+  coinSymbol?: string;
 }
 
 type SortOption = 'name-asc' | 'name-desc' | 'date-desc' | 'date-asc';
@@ -30,13 +33,15 @@ interface MySubscriptionsPageProps {
 
 export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps) {
   const { address, isConnected } = useWallet();
-  const { subscriptions: rawSubscriptions, loading, error, unsubscribe: unsubscribeApi } = useSubscriptions(address);
+  const { subscriptions: rawSubscriptions, loading, error, unsubscribe: unsubscribeApi, refetch } = useSubscriptions(address);
   const { tokens: userTokens } = useUserTokens(address);
   
   const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [unsubscribingId, setUnsubscribingId] = useState<string | null>(null);
+  const [creatorTokenInfo, setCreatorTokenInfo] = useState<Record<string, { name: string; symbol: string }>>({});
+  const [loadingTokenInfo, setLoadingTokenInfo] = useState(false);
 
   // Transformar subscriptions del backend a formato display
   const subscriptions: SubscriptionDisplay[] = rawSubscriptions.map((sub) => {
@@ -47,6 +52,9 @@ export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps)
     // Verificar si el usuario tiene tokens de este creador
     const userToken = userTokens.find(t => t.creatorAddress.toLowerCase() === sub.creator_address.toLowerCase());
     
+    // Obtener información de la moneda del creador
+    const tokenInfo = creatorTokenInfo[sub.creator_address.toLowerCase()];
+    
     return {
       id: sub.id.toString(),
       creatorAddress: sub.creator_address,
@@ -55,8 +63,55 @@ export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps)
       followedSince: new Date(sub.created_at).toLocaleDateString('es-ES'),
       hasCreatorCoin: !!userToken,
       coinBalance: userToken?.balance,
+      coinName: tokenInfo?.name,
+      coinSymbol: tokenInfo?.symbol,
     };
   });
+
+  // Cargar información de tokens de creadores
+  useEffect(() => {
+    const loadCreatorTokenInfo = async () => {
+      if (!rawSubscriptions || rawSubscriptions.length === 0) {
+        setCreatorTokenInfo({});
+        setLoadingTokenInfo(false);
+        return;
+      }
+
+      try {
+        setLoadingTokenInfo(true);
+        const tokenInfoMap: Record<string, { name: string; symbol: string }> = {};
+
+        await Promise.all(
+          rawSubscriptions.map(async (sub) => {
+            try {
+              // Intentar obtener el token del creador
+              const tokenAddress = await factoryService.getCreatorToken(sub.creator_address);
+              if (tokenAddress && tokenAddress !== '0x0000000000000000000000000000000000000000') {
+                // Obtener información del token
+                const tokenInfo = await creatorTokenService.getTokenInfo(tokenAddress);
+                tokenInfoMap[sub.creator_address.toLowerCase()] = {
+                  name: tokenInfo.name,
+                  symbol: tokenInfo.symbol,
+                };
+              }
+            } catch (err) {
+              // Si el creador no tiene token, simplemente no agregamos información
+              // Esto es esperado para creadores que aún no han creado su moneda
+              console.log(`Creator ${sub.creator_address} does not have a token yet`);
+            }
+          })
+        );
+
+        setCreatorTokenInfo(tokenInfoMap);
+      } catch (err) {
+        console.error('Error loading creator token info:', err);
+      } finally {
+        setLoadingTokenInfo(false);
+      }
+    };
+
+    loadCreatorTokenInfo();
+  }, [rawSubscriptions]);
 
   // Statistics
   const stats = {
@@ -73,7 +128,21 @@ export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps)
     try {
       setUnsubscribingId(creatorAddress);
       await unsubscribeApi(creatorAddress);
+      
+      // Recargar la lista de suscripciones después de desuscribirse exitosamente
+      await refetch();
     } catch (err: any) {
+      // Si el error es "Subscription not found", significa que ya se eliminó exitosamente
+      // Esto puede pasar si el backend retorna 404 después de eliminar
+      if (err.message?.toLowerCase().includes('subscription not found') || 
+          err.message?.toLowerCase().includes('no encontrada') ||
+          err.message?.toLowerCase().includes('not found')) {
+        console.log('Suscripción ya eliminada, recargando lista...');
+        // Recargar la lista de todas formas
+        await refetch();
+        return;
+      }
+      
       console.error('Error unsubscribing:', err);
       alert(err.message || 'Error al desuscribirse');
     } finally {
@@ -239,10 +308,13 @@ export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps)
                     >
                       {sub.creatorName}
                     </h3>
-                    {sub.hasCreatorCoin && (
+                    {sub.coinSymbol && (
                       <span className="px-2 py-1 bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-emerald-400 text-xs flex items-center gap-1">
                         <TrendingUp className="w-3 h-3" />
-                        {sub.coinBalance} tokens
+                        {sub.coinName} ({sub.coinSymbol})
+                        {sub.hasCreatorCoin && sub.coinBalance && (
+                          <span className="ml-1 text-emerald-300">• {sub.coinBalance}</span>
+                        )}
                       </span>
                     )}
                   </div>

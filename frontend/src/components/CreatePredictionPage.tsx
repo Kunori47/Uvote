@@ -6,6 +6,21 @@ import { predictionMarketService, factoryService } from '../lib/contractService'
 import { CONTRACT_ADDRESSES, NETWORK_CONFIG, getSigner } from '../lib/contracts';
 import { apiService, generateAuthToken } from '../lib/apiService';
 
+// Categorías disponibles (mismo que Categories.tsx)
+const availableTags = [
+  { id: 'gaming', label: 'Gaming', emoji: '🎮' },
+  { id: 'crypto', label: 'Crypto', emoji: '₿' },
+  { id: 'sports', label: 'Sports', emoji: '⚽' },
+  { id: 'politics', label: 'Politics', emoji: '🏛️' },
+  { id: 'tech', label: 'Tech', emoji: '💻' },
+  { id: 'entertainment', label: 'Entertainment', emoji: '🎬' },
+  { id: 'finance', label: 'Finance', emoji: '💰' },
+  { id: 'science', label: 'Science', emoji: '🔬' },
+  { id: 'music', label: 'Music', emoji: '🎵' },
+  { id: 'fashion', label: 'Fashion', emoji: '👗' },
+  { id: 'food', label: 'Food', emoji: '🍔' },
+];
+
 interface CreatePredictionPageProps {
   onBack?: () => void;
   onCreated?: (predictionId: string) => void;
@@ -20,6 +35,7 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
   const [options, setOptions] = useState<string[]>(['', '']);
   const [duration, setDuration] = useState('24'); // horas
   const [noTimeLimit, setNoTimeLimit] = useState(false); // predicción indefinida
+  const [selectedTags, setSelectedTags] = useState<string[]>([]); // Tags seleccionados
   
   // Estados de la UI
   const [isCreating, setIsCreating] = useState(false);
@@ -168,8 +184,9 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
       setSuccess(true);
       setCreatedPredictionId(result.predictionId);
       
-      // Guardar referencia de imagen de predicción (si hay)
-      if (finalImageUrl) {
+      // Guardar referencia de imagen de predicción y tags (siempre se guarda, con o sin imagen)
+      // Solo guardar si hay imagen O tags
+      if (finalImageUrl || selectedTags.length > 0) {
         try {
           const signer = await getSigner();
           const authToken = await generateAuthToken(address, signer);
@@ -179,13 +196,14 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
               prediction_id_onchain: String(result.predictionId),
               prediction_market_address: CONTRACT_ADDRESSES.PredictionMarket,
               chain_id: NETWORK_CONFIG.chainId,
-              image_url: finalImageUrl,
+              image_url: finalImageUrl || undefined,
               image_path: null,
+              tags: selectedTags.length > 0 ? selectedTags : [],
             },
             authToken
           );
         } catch (metaError) {
-          console.error('Error guardando metadata de imagen de predicción:', metaError);
+          console.error('Error guardando metadata de predicción:', metaError);
           // No bloqueamos el flujo principal si solo falla la metadata
         }
       }
@@ -371,6 +389,51 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Tags */}
+        <div>
+          <label className="block text-slate-300 font-medium mb-2">
+            Tags (opcional)
+          </label>
+          <p className="text-slate-500 text-sm mb-3">
+            Selecciona uno o más tags para categorizar tu predicción
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {availableTags.map((tag) => {
+              const isSelected = selectedTags.includes(tag.id);
+              return (
+                <button
+                  key={tag.id}
+                  type="button"
+                  onClick={() => {
+                    if (isSelected) {
+                      setSelectedTags(selectedTags.filter(t => t !== tag.id));
+                    } else {
+                      setSelectedTags([...selectedTags, tag.id]);
+                    }
+                  }}
+                  disabled={isCreating}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                    isSelected
+                      ? 'bg-emerald-600 text-white border-2 border-emerald-500'
+                      : 'bg-slate-800 text-slate-400 border-2 border-slate-700 hover:border-slate-600 hover:bg-slate-800/80 hover:text-slate-200'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <span>{tag.emoji}</span>
+                  <span>{tag.label}</span>
+                  {isSelected && (
+                    <X className="w-3 h-3" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {selectedTags.length > 0 && (
+            <p className="text-slate-400 text-xs mt-2">
+              {selectedTags.length} tag{selectedTags.length > 1 ? 's' : ''} seleccionado{selectedTags.length > 1 ? 's' : ''}
+            </p>
+          )}
         </div>
 
         {/* Opciones */}

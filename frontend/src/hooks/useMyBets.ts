@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { predictionMarketService } from '../lib/contractService';
+import { predictionMarketService, creatorTokenService } from '../lib/contractService';
 
 export interface MyBet {
   predictionId: string;
@@ -17,6 +17,12 @@ export interface MyBet {
   creatorTokenSymbol: string;
   closesAt: number;
   resolvedAt: number;
+  totalParticipants: number;
+  totalPool: string;
+  primaryOptionIndex: number; // La opción principal que votó el usuario
+  primaryOptionDescription: string;
+  creatorToken: string;
+  createdAt: number;
 }
 
 export const useMyBets = (userAddress: string | null) => {
@@ -75,9 +81,33 @@ export const useMyBets = (userAddress: string | null) => {
 
             const totalBetAmount = userBets.reduce((sum, bet) => sum + parseFloat(bet.amount), 0).toFixed(4);
 
+            // Encontrar la opción principal (la que tiene más apuestas del usuario)
+            const optionAmounts = betsWithOptions.reduce((acc, bet) => {
+              acc[bet.optionIndex] = (acc[bet.optionIndex] || 0) + parseFloat(bet.amount);
+              return acc;
+            }, {} as Record<number, number>);
+            
+            const primaryOptionIndex = Object.entries(optionAmounts)
+              .sort(([, a], [, b]) => b - a)[0][0];
+            const primaryOptionDescription = options[Number(primaryOptionIndex)]?.description || `Opción ${primaryOptionIndex}`;
+
+            // Calcular número total de participantes únicos
+            // Nota: sumar totalBettors puede contar a la misma persona múltiples veces si votó en varias opciones
+            // Usamos el máximo de totalBettors como estimación más precisa (una persona solo puede votar una vez por opción)
+            const totalParticipants = Math.max(...options.map(opt => opt.totalBettors), 0);
+
             // Verificar si puede reclamar ganancias
             const canClaim = prediction.status === 4 && // Confirmada
               userBets.some(bet => bet.optionIndex === prediction.winningOption && !bet.claimed);
+
+            // Obtener símbolo real del token del creador
+            let tokenSymbol = 'uVotes'; // Fallback
+            try {
+              const tokenInfo = await creatorTokenService.getTokenInfo(prediction.creatorToken);
+              tokenSymbol = tokenInfo.symbol;
+            } catch (err) {
+              console.warn(`Error obteniendo símbolo del token ${prediction.creatorToken}:`, err);
+            }
 
             myBets.push({
               predictionId: prediction.id,
@@ -87,9 +117,15 @@ export const useMyBets = (userAddress: string | null) => {
               bets: betsWithOptions,
               winningOption: prediction.winningOption,
               canClaim,
-              creatorTokenSymbol: 'TOKEN', // TODO: obtener símbolo real del token
+              creatorTokenSymbol: tokenSymbol,
               closesAt: prediction.closesAt,
               resolvedAt: prediction.resolvedAt,
+              totalParticipants,
+              totalPool: prediction.totalPool,
+              primaryOptionIndex: Number(primaryOptionIndex),
+              primaryOptionDescription,
+              creatorToken: prediction.creatorToken,
+              createdAt: prediction.createdAt,
             });
           }
         } catch (err) {

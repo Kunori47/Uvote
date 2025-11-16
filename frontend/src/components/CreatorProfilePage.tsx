@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   ArrowLeft,
   Users,
@@ -7,6 +7,7 @@ import {
   BellOff,
   CheckCircle,
   UserPlus,
+  UserMinus,
   BarChart3,
   Filter,
   Calendar,
@@ -14,9 +15,17 @@ import {
   Target,
   Award,
   Coins,
+  Loader2,
 } from "lucide-react";
 import { PredictionCard } from "./PredictionCard";
 import React from "react";
+import { useWallet } from "../hooks/useWallet";
+import { useSubscriptions } from "../hooks/useSubscriptions";
+import { usePredictions, PredictionData } from "../hooks/usePredictions";
+import { useMyCreatorToken } from "../hooks/useMyCreatorToken";
+import { apiService } from "../lib/apiService";
+import { tokenExchangeService } from "../lib/contractService";
+import { CONTRACT_ADDRESSES, NETWORK_CONFIG } from "../lib/contracts";
 
 interface Creator {
   id: string;
@@ -36,7 +45,6 @@ interface Creator {
   coinSymbol?: string;
   coinValue?: number;
   coinBalance?: number;
-  totalEarnings?: number;
   averageParticipants?: number;
 }
 
@@ -80,7 +88,6 @@ const mockCreator: Creator = {
   coinSymbol: "IBAI",
   coinValue: 2.5,
   coinBalance: 1000,
-  totalEarnings: 125000,
   averageParticipants: 8500,
 };
 
@@ -231,16 +238,26 @@ export function CreatorProfilePage({
   creatorId,
   onBack,
 }: CreatorProfilePageProps) {
+  const { address: currentUserAddress, isConnected } = useWallet();
+  const { predictions: allPredictions } = usePredictions();
+  const { token: creatorToken, hasToken: hasCreatorToken } = useMyCreatorToken(creatorId);
+  const { isSubscribed: isUserSubscribed, subscribe, unsubscribe, loading: subscriptionLoading } = useSubscriptions(currentUserAddress);
+  
   const [activeTab, setActiveTab] = useState<TabType>("predictions");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [sortBy, setSortBy] = useState<SortOption>("recent");
-  const [isSubscribed, setIsSubscribed] = useState(mockCreator.isSubscribed);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(
-    mockCreator.notificationsEnabled
-  );
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
-
-  const creator = mockCreator;
+  
+  // Estados para datos reales
+  const [creator, setCreator] = useState<Creator | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [creatorEarnings, setCreatorEarnings] = useState<string>("0");
+  const [loadingEarnings, setLoadingEarnings] = useState(false);
+  const [predictionThumbnails, setPredictionThumbnails] = useState<Record<string, string>>({});
+  const [isTogglingSubscription, setIsTogglingSubscription] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -256,8 +273,303 @@ export function CreatorProfilePage({
     });
   };
 
+  // ============ CARGAR DATOS DEL BACKEND ============
+  
+  // Cargar perfil del creador desde Supabase
+  useEffect(() => {
+    const loadCreatorProfile = async () => {
+      if (!creatorId) return;
+
+      try {
+        setLoadingProfile(true);
+        setProfileError(null);
+
+        const user: any = await apiService.getUser(creatorId);
+        const followersCount = await apiService.getCreatorFollowersCount(creatorId);
+
+        if (!user) {
+          // Si no hay usuario en backend, usar datos básicos
+          const shortAddr = `${creatorId.slice(0, 6)}...${creatorId.slice(-4)}`;
+          setCreator({
+            ...mockCreator,
+            id: creatorId,
+            name: shortAddr,
+            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${creatorId}`,
+            followers: 0,
+            joinedDate: new Date().toISOString(),
+            bio: "",
+            hasCreatorCoin: false,
+          });
+          return;
+        }
+
+        const displayName =
+          user.display_name ||
+          user.username ||
+          `${creatorId.slice(0, 6)}...${creatorId.slice(-4)}`;
+
+        setCreator({
+          ...mockCreator,
+          id: creatorId,
+          name: displayName,
+          avatar:
+            user.profile_image_url ||
+            `https://api.dicebear.com/7.x/avataaars/svg?seed=${creatorId}`,
+          banner: mockCreator.banner, // Usar banner por defecto si no hay uno personalizado
+          bio: user.bio || "",
+          followers: followersCount,
+          joinedDate: user.created_at || new Date().toISOString(),
+        });
+      } catch (e: any) {
+        console.error("Error loading creator profile:", e);
+        setProfileError(e?.message || "Error al cargar el perfil del creador");
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+
+    loadCreatorProfile();
+  }, [creatorId]);
+
+  // ============ CARGAR DATOS DE BLOCKCHAIN ============
+
+  // Cargar información del token del creador
+  useEffect(() => {
+    if (!creatorId || !hasCreatorToken || !creatorToken || !creator) {
+      if (creator) {
+        setCreator((prev) => ({
+          ...prev!,
+          hasCreatorCoin: false,
+          coinSymbol: undefined,
+          coinValue: undefined,
+        }));
+      }
+      return;
+    }
+
+    setCreator((prev) => ({
+      ...prev!,
+      hasCreatorCoin: true,
+      coinSymbol: creatorToken.symbol,
+      coinValue: parseFloat(creatorToken.price),
+    }));
+  }, [creatorId, hasCreatorToken, creatorToken]);
+
+  // Cargar ganancias del creador
+  useEffect(() => {
+    const loadEarnings = async () => {
+      if (!creatorId || !hasCreatorToken) {
+        setCreatorEarnings("0");
+        return;
+      }
+
+      try {
+        setLoadingEarnings(true);
+        const earningsEth = await tokenExchangeService.getCreatorEarnings(creatorId);
+        setCreatorEarnings(earningsEth);
+      } catch (err) {
+        console.error("Error loading creator earnings:", err);
+        setCreatorEarnings("0");
+      } finally {
+        setLoadingEarnings(false);
+      }
+    };
+
+    loadEarnings();
+  }, [creatorId, hasCreatorToken]);
+
+  // Filtrar predicciones del creador
+  const creatorPredictions: PredictionData[] = useMemo(() => {
+    if (!creatorId) return [];
+    return allPredictions.filter(
+      (p) => p.creator.toLowerCase() === creatorId.toLowerCase()
+    );
+  }, [allPredictions, creatorId]);
+
+  // Cargar imágenes de predicciones del creador
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadImages = async () => {
+      if (!creatorPredictions || creatorPredictions.length === 0) {
+        setPredictionThumbnails({});
+        return;
+      }
+
+      try {
+        const entries: Array<[string, string]> = [];
+
+        await Promise.all(
+          creatorPredictions.map(async (pred) => {
+            try {
+              const img: any = await apiService.getPredictionImage(
+                pred.id,
+                CONTRACT_ADDRESSES.PredictionMarket,
+                NETWORK_CONFIG.chainId
+              );
+              if (img && img.image_url) {
+                entries.push([pred.id, img.image_url as string]);
+              }
+            } catch (e) {
+              // Ignorar errores individuales
+            }
+          })
+        );
+
+        if (!cancelled) {
+          const map: Record<string, string> = {};
+          for (const [id, url] of entries) {
+            map[id] = url;
+          }
+          setPredictionThumbnails(map);
+        }
+      } catch (e) {
+        console.error("Error loading creator prediction thumbnails:", e);
+      }
+    };
+
+    loadImages();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [creatorPredictions]);
+
+  // Actualizar estadísticas de predicciones
+  useEffect(() => {
+    if (!creator) return;
+    
+    const totalPredictions = creatorPredictions.length;
+    const activePredictions = creatorPredictions.filter(
+      (p) => p.status === 0 || p.status === 1 || p.status === 2 || p.status === 3
+    ).length;
+    
+    // Calcular porcentaje de acierto basado en predicciones confirmadas
+    // Solo contar predicciones que estén confirmadas (status === 4) y tengan un winningOption válido
+    const confirmedPredictions = creatorPredictions.filter(
+      (p) => p.status === 4 && p.winningOption >= 0 && p.winningOption < p.options.length
+    );
+    
+    // Solo contar predicciones que hayan sido resueltas (status >= 2) para calcular el porcentaje
+    // Excluir predicciones activas, canceladas y disputadas del cálculo
+    const resolvedPredictions = creatorPredictions.filter(
+      (p) => p.status === 2 || p.status === 3 || p.status === 4 || p.status === 5
+    );
+    
+    // Calcular win rate: porcentaje de predicciones confirmadas sobre predicciones resueltas
+    let winRate = 0;
+    if (resolvedPredictions.length > 0) {
+      winRate = (confirmedPredictions.length / resolvedPredictions.length) * 100;
+      // Redondear a 1 decimal
+      winRate = Math.round(winRate * 10) / 10;
+    }
+
+    setCreator((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        totalPredictions,
+        activePredictions,
+        winRate,
+      };
+    });
+  }, [creatorPredictions, creator]);
+
+  // ============ MANEJO DE SUSCRIPCIONES ============
+
+  const handleToggleSubscription = async () => {
+    if (!isConnected || !currentUserAddress) {
+      setSubscriptionError("Debes conectar tu wallet para suscribirte");
+      setTimeout(() => setSubscriptionError(null), 3000);
+      return;
+    }
+
+    if (isTogglingSubscription) return;
+
+    try {
+      setIsTogglingSubscription(true);
+      setSubscriptionError(null);
+      
+      if (isUserSubscribed(creatorId)) {
+        await unsubscribe(creatorId);
+      } else {
+        await subscribe(creatorId);
+      }
+    } catch (err: any) {
+      console.error("Error toggling subscription:", err);
+      setSubscriptionError(err.message || "Error al cambiar suscripción");
+      setTimeout(() => setSubscriptionError(null), 5000);
+    } finally {
+      setIsTogglingSubscription(false);
+    }
+  };
+
+  // Verificar estado de suscripción
+  const isSubscribed = isUserSubscribed(creatorId);
+
+  // Convertir predicciones de blockchain al formato de PredictionCard
+  const predictionsForCards = useMemo(() => {
+    if (!creator) return [];
+    
+    return creatorPredictions.map((pred) => {
+      const MAX_SAFE_TIMESTAMP = 10 ** 15;
+      let endDate: string;
+      if (pred.closesAt > MAX_SAFE_TIMESTAMP) {
+        endDate = "Indefinida";
+      } else {
+        const date = new Date(pred.closesAt * 1000);
+        endDate = isNaN(date.getTime())
+          ? "Indefinida"
+          : date.toISOString().split("T")[0];
+      }
+
+      const options = pred.options.map((opt, index) => ({
+        id: index.toString(),
+        label: opt.description,
+        votes: parseFloat(opt.totalAmount),
+      }));
+
+      let predCategory = "other";
+      const title = pred.title.toLowerCase();
+      if (title.includes("deporte") || title.includes("fútbol") || title.includes("madrid")) {
+        predCategory = "sports";
+      } else if (title.includes("juego") || title.includes("gaming") || title.includes("gta")) {
+        predCategory = "gaming";
+      } else if (title.includes("crypto") || title.includes("bitcoin") || title.includes("eth")) {
+        predCategory = "crypto";
+      } else if (title.includes("tech") || title.includes("tecnología") || title.includes("iphone")) {
+        predCategory = "tech";
+      }
+
+      let status: "active" | "ended" | "cancelled" = "active";
+      if (pred.status === 4) {
+        status = "ended";
+      } else if (pred.status === 6) {
+        status = "cancelled";
+      }
+
+      return {
+        id: pred.id,
+        creator: {
+          name: creator.name,
+          avatar: creator.avatar,
+          verified: true,
+        },
+        question: pred.title,
+        category: predCategory,
+        totalPool: parseFloat(pred.totalPool),
+        options,
+        endDate,
+        thumbnail:
+          predictionThumbnails[pred.id] ||
+          `https://api.dicebear.com/7.x/shapes/svg?seed=${pred.id}`,
+        status,
+      };
+    });
+  }, [creatorPredictions, creator, predictionThumbnails]);
+
   // Filter and sort predictions
-  const filteredAndSortedPredictions = mockPredictions
+  const filteredAndSortedPredictions = predictionsForCards
     .filter((pred) => {
       if (filterStatus === "all") return true;
       return pred.status === filterStatus;
@@ -265,19 +577,44 @@ export function CreatorProfilePage({
     .sort((a, b) => {
       switch (sortBy) {
         case "recent":
-          return b.id.localeCompare(a.id); // Assuming higher ID = more recent
+          return parseInt(b.id) - parseInt(a.id);
         case "popular":
           return b.totalPool - a.totalPool;
         case "ending-soon":
+          if (a.endDate === "Indefinida") return 1;
+          if (b.endDate === "Indefinida") return -1;
           return (
             new Date(a.endDate).getTime() - new Date(b.endDate).getTime()
           );
         case "most-votes":
-          return b.totalPool - a.totalPool;
+          const totalVotesA = a.options.reduce((sum, opt) => sum + opt.votes, 0);
+          const totalVotesB = b.options.reduce((sum, opt) => sum + opt.votes, 0);
+          return totalVotesB - totalVotesA;
         default:
           return 0;
       }
     });
+
+  // Mostrar pantalla de carga mientras se carga el perfil
+  if (loadingProfile || !creator) {
+    return (
+      <div className="pb-6">
+        <div className="p-6 pb-0">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-slate-400 hover:text-slate-200 transition-colors mb-6"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Volver</span>
+          </button>
+        </div>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
+          <p className="text-slate-400 text-lg">Cargando perfil del creador...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-6">
@@ -294,11 +631,15 @@ export function CreatorProfilePage({
 
       {/* Banner */}
       <div className="relative h-48 md:h-64 bg-slate-900/50 border-y border-slate-800/50 mb-6">
-        <img
-          src={creator.banner}
-          alt={creator.name}
-          className="w-full h-full object-cover opacity-40"
-        />
+        {creator.banner ? (
+          <img
+            src={creator.banner}
+            alt={creator.name}
+            className="w-full h-full object-cover opacity-40"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-emerald-500/20 via-blue-500/20 to-purple-500/20" />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0f] via-transparent to-transparent" />
       </div>
 
@@ -356,17 +697,23 @@ export function CreatorProfilePage({
                   )}
                 </button>
                 <button
-                  onClick={() => setIsSubscribed(!isSubscribed)}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-all ${
+                  onClick={handleToggleSubscription}
+                  disabled={!isConnected || isTogglingSubscription || subscriptionLoading}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                     isSubscribed
                       ? "bg-slate-800/50 text-slate-300 hover:bg-slate-800 border border-slate-700/50"
                       : "bg-emerald-500 text-white hover:bg-emerald-600"
                   }`}
                 >
-                  {isSubscribed ? (
+                  {isTogglingSubscription || subscriptionLoading ? (
                     <>
-                      <CheckCircle className="w-5 h-5" />
-                      <span>Suscrito</span>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>{isSubscribed ? "Desuscribiendo..." : "Suscribiendo..."}</span>
+                    </>
+                  ) : isSubscribed ? (
+                    <>
+                      <UserMinus className="w-5 h-5" />
+                      <span>Desuscribirse</span>
                     </>
                   ) : (
                     <>
@@ -380,14 +727,31 @@ export function CreatorProfilePage({
           </div>
         </div>
 
+        {/* Mensajes de error/estado */}
+        {profileError && (
+          <div className="mb-4 mx-6 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+            {profileError}
+          </div>
+        )}
+        {subscriptionError && (
+          <div className="mb-4 mx-6 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
+            {subscriptionError}
+          </div>
+        )}
+        {loadingProfile && (
+          <div className="mb-4 mx-6 text-sm text-slate-400">
+            Cargando perfil del creador...
+          </div>
+        )}
+
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4">
             <div className="flex items-center gap-2 text-slate-400 mb-2">
               <Trophy className="w-4 h-4" />
               <span className="text-sm">% Acierto</span>
             </div>
-            <div className="text-emerald-400 text-2xl">{creator.winRate}%</div>
+            <div className="text-emerald-400 text-2xl">{creator.winRate.toFixed(1)}%</div>
           </div>
 
           <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4">
@@ -400,32 +764,27 @@ export function CreatorProfilePage({
             </div>
           </div>
 
-          {creator.hasCreatorCoin && (
-            <>
-              <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4">
-                <div className="flex items-center gap-2 text-slate-400 mb-2">
-                  <Coins className="w-4 h-4" />
-                  <span className="text-sm">Moneda</span>
-                </div>
+          {/* Contenedor de Moneda - siempre visible */}
+          <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4">
+            <div className="flex items-center gap-2 text-slate-400 mb-2">
+              <Coins className="w-4 h-4" />
+              <span className="text-sm">Moneda</span>
+            </div>
+            {creator.hasCreatorCoin && creatorToken ? (
+              <>
                 <div className="text-slate-100 text-2xl">
-                  {creator.coinValue}u
+                  {parseFloat(creatorToken.price).toFixed(2)} DOT
                 </div>
                 <div className="text-slate-500 text-xs mt-1">
-                  {creator.coinSymbol}
+                  {creatorToken.symbol}
                 </div>
+              </>
+            ) : (
+              <div className="text-slate-500 text-sm">
+                Sin moneda
               </div>
-
-              <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4">
-                <div className="flex items-center gap-2 text-slate-400 mb-2">
-                  <TrendingUp className="w-4 h-4" />
-                  <span className="text-sm">Ganancias</span>
-                </div>
-                <div className="text-slate-100 text-2xl">
-                  {formatNumber(creator.totalEarnings || 0)}u
-                </div>
-              </div>
-            </>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Tabs */}
@@ -489,7 +848,7 @@ export function CreatorProfilePage({
                       : "bg-slate-900/50 text-slate-400 border border-slate-800/50 hover:bg-slate-800/50"
                   }`}
                 >
-                  Activas ({creator.activePredictions})
+                  Activas ({creator.activePredictions || 0})
                 </button>
                 <button
                   onClick={() => setFilterStatus("ended")}
@@ -538,7 +897,12 @@ export function CreatorProfilePage({
 
             {/* Predictions Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredAndSortedPredictions.length === 0 ? (
+              {loadingProfile ? (
+                <div className="col-span-full text-center py-12 text-slate-500">
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+                  Cargando predicciones...
+                </div>
+              ) : filteredAndSortedPredictions.length === 0 ? (
                 <div className="col-span-full text-center py-12 text-slate-500">
                   No hay predicciones para mostrar
                 </div>
@@ -581,37 +945,45 @@ export function CreatorProfilePage({
               </div>
             </div>
 
-            {creator.hasCreatorCoin && (
-              <div className="bg-gradient-to-br from-emerald-500/10 to-blue-500/10 border border-emerald-500/20 rounded-xl p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="text-slate-100 mb-2">Moneda del Creador</h3>
-                    <p className="text-slate-400 text-sm">
-                      Invierte en {creator.name} comprando su moneda oficial
-                    </p>
-                  </div>
-                  <Coins className="w-8 h-8 text-emerald-400" />
+            {/* Creator Coin Section */}
+            <div className="bg-gradient-to-br from-emerald-500/10 to-blue-500/10 border border-emerald-500/20 rounded-xl p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="text-slate-100 mb-2">
+                    Moneda del Creador
+                  </h3>
+                  <p className="text-slate-400 text-sm">
+                    {creator.hasCreatorCoin
+                      ? `Invierte en ${creator.name} comprando su moneda oficial`
+                      : `${creator.name} aún no ha creado su moneda`}
+                  </p>
                 </div>
+              </div>
+              {creator.hasCreatorCoin && creatorToken ? (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-slate-500 text-sm mb-1">Símbolo</div>
-                    <div className="text-emerald-400">{creator.coinSymbol}</div>
-                  </div>
-                  <div>
-                    <div className="text-slate-500 text-sm mb-1">Precio Actual</div>
-                    <div className="text-emerald-400">{creator.coinValue}u</div>
-                  </div>
-                </div>
-                {creator.coinBalance && creator.coinBalance > 0 && (
-                  <div className="mt-4 pt-4 border-t border-emerald-500/20">
-                    <div className="text-slate-400 text-sm mb-1">Tus tenencias</div>
-                    <div className="text-slate-100">
-                      {creator.coinBalance.toLocaleString()} {creator.coinSymbol}
+                    <div className="text-slate-500 text-sm mb-1">
+                      Símbolo
+                    </div>
+                    <div className="text-emerald-400">
+                      {creatorToken.symbol}
                     </div>
                   </div>
-                )}
-              </div>
-            )}
+                  <div>
+                    <div className="text-slate-500 text-sm mb-1">
+                      Precio Actual
+                    </div>
+                    <div className="text-emerald-400">
+                      {parseFloat(creatorToken.price).toFixed(2)} DOT
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-slate-400 text-sm">
+                  Este creador aún no ha creado su moneda
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -628,7 +1000,7 @@ export function CreatorProfilePage({
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-slate-400 text-sm">Tasa de Acierto</span>
-                      <span className="text-emerald-400">{creator.winRate}%</span>
+                      <span className="text-emerald-400">{creator.winRate.toFixed(1)}%</span>
                     </div>
                     <div className="w-full bg-slate-800/50 rounded-full h-2">
                       <div
@@ -676,33 +1048,7 @@ export function CreatorProfilePage({
                 </div>
               </div>
 
-              {/* Financial Stats */}
-              {creator.hasCreatorCoin && (
-                <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <TrendingUp className="w-5 h-5 text-emerald-400" />
-                    <h3 className="text-slate-100">Financiero</h3>
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="text-slate-500 text-sm mb-1">Ganancias Totales</div>
-                      <div className="text-slate-200 text-xl">
-                        {formatNumber(creator.totalEarnings || 0)}u
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-slate-500 text-sm mb-1">Valor Moneda</div>
-                      <div className="text-slate-200 text-xl">{creator.coinValue}u</div>
-                    </div>
-                    <div>
-                      <div className="text-slate-500 text-sm mb-1">Promedio por Predicción</div>
-                      <div className="text-slate-200 text-xl">
-                        {formatNumber(Math.floor((creator.totalEarnings || 0) / creator.totalPredictions))}u
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+              
 
               {/* Categories */}
               <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-6">

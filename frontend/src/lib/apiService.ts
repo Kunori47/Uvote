@@ -283,8 +283,9 @@ export const apiService = {
     prediction_id_onchain: string;
     prediction_market_address: string;
     chain_id: number;
-    image_url: string;
+    image_url?: string;
     image_path?: string;
+    tags?: string[];
   }, authToken: string) {
     const res = await fetch(`${API_BASE_URL}/api/predictions/images`, {
       method: 'POST',

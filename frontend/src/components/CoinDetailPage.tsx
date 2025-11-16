@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, TrendingUp, Coins, Wallet, DollarSign, Loader2, AlertCircle, CheckCircle2, ArrowDownUp, UserPlus, UserMinus } from "lucide-react";
+import { ArrowLeft, TrendingUp, Coins, Wallet, DollarSign, Loader2, AlertCircle, CheckCircle2, ArrowDownUp } from "lucide-react";
 import React from "react";
 import { useWallet } from '../hooks/useWallet';
-import { useSubscriptions } from '../hooks/useSubscriptions';
-import { creatorTokenService, tokenExchangeService, factoryService } from '../lib/contractService';
+import { creatorTokenService, tokenExchangeService } from '../lib/contractService';
+import { apiService } from '../lib/apiService';
 
 interface CoinDetailPageProps {
   coinId: string; // Token address
@@ -12,13 +12,17 @@ interface CoinDetailPageProps {
 
 export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
   const { address, balance, isConnected } = useWallet();
-  const { subscribe, unsubscribe, isSubscribed } = useSubscriptions(address);
   
   // Token info
   const [tokenInfo, setTokenInfo] = useState<any>(null);
   const [userBalance, setUserBalance] = useState('0');
   const [loading, setLoading] = useState(true);
+  const [loadingMetadata, setLoadingMetadata] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Metadata from Supabase
+  const [coinImageUrl, setCoinImageUrl] = useState<string | null>(null);
+  const [creatorProfile, setCreatorProfile] = useState<{ displayName: string; avatarUrl: string } | null>(null);
   
   // Buy/Sell states
   const [action, setAction] = useState<'buy' | 'sell'>('buy');
@@ -27,9 +31,6 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState(false);
-  
-  // Subscription states
-  const [isSubscribing, setIsSubscribing] = useState(false);
 
   // Load token info
   useEffect(() => {
@@ -60,21 +61,79 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
     loadTokenInfo();
   }, [coinId, address]);
 
-  // Calculate estimated tokens
+  // Cargar imagen de la moneda y perfil del creador desde Supabase
   useEffect(() => {
-    const calculateEstimate = async () => {
-      if (!amount || parseFloat(amount) <= 0) {
+    const loadTokenMetadata = async () => {
+      if (!tokenInfo?.creator || !coinId) {
+        setLoadingMetadata(false);
+        return;
+      }
+      
+      try {
+        setLoadingMetadata(true);
+        
+        // Obtener imagen de la moneda desde Supabase
+        const tokenData = await apiService.getToken(coinId);
+        if (tokenData?.coin_image_url) {
+          setCoinImageUrl(tokenData.coin_image_url);
+        } else {
+          setCoinImageUrl(null);
+        }
+        
+        // Obtener perfil del creador
+        const creatorData = await apiService.getUser(tokenInfo.creator);
+        if (creatorData) {
+          setCreatorProfile({
+            displayName: creatorData.display_name || creatorData.username || `${tokenInfo.creator.slice(0, 6)}...${tokenInfo.creator.slice(-4)}`,
+            avatarUrl: creatorData.profile_image_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${tokenInfo.creator}`,
+          });
+        } else {
+          setCreatorProfile({
+            displayName: `${tokenInfo.creator.slice(0, 6)}...${tokenInfo.creator.slice(-4)}`,
+            avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${tokenInfo.creator}`,
+          });
+        }
+      } catch (err) {
+        console.error('Error cargando metadata del token:', err);
+      } finally {
+        setLoadingMetadata(false);
+      }
+    };
+    
+    loadTokenMetadata();
+  }, [tokenInfo?.creator, coinId]);
+
+  // Calculate estimated tokens (cálculo en frontend usando el precio del token)
+  useEffect(() => {
+    const calculateEstimate = () => {
+      if (!amount || parseFloat(amount) <= 0 || !tokenInfo) {
         setEstimatedTokens('0');
         return;
       }
 
       try {
         if (action === 'buy') {
-          const result = await tokenExchangeService.calculateBuyAmount(coinId, amount);
-          setEstimatedTokens(result.tokens);
+          // Calcular en frontend: fee 1%, luego dividir por precio del token
+          const ethAmount = parseFloat(amount);
+          const fee = ethAmount * 0.01; // 1% fee
+          const amountAfterFee = ethAmount - fee;
+          const tokenPrice = parseFloat(tokenInfo.price);
+          
+          if (tokenPrice > 0) {
+            const tokensToReceive = amountAfterFee / tokenPrice;
+            setEstimatedTokens(tokensToReceive.toFixed(4));
+          } else {
+            setEstimatedTokens('0');
+          }
         } else {
-          const result = await tokenExchangeService.calculateSellAmount(coinId, amount);
-          setEstimatedTokens(result.native);
+          // Para vender: tokens * precio - fee
+          const tokenAmount = parseFloat(amount);
+          const tokenPrice = parseFloat(tokenInfo.price);
+          const nativeValue = tokenAmount * tokenPrice;
+          const fee = nativeValue * 0.01; // 1% fee
+          const ethToReceive = nativeValue - fee;
+          
+          setEstimatedTokens(ethToReceive.toFixed(6));
         }
       } catch (err) {
         console.error('Error calculando estimación:', err);
@@ -84,7 +143,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
 
     const timeoutId = setTimeout(calculateEstimate, 300);
     return () => clearTimeout(timeoutId);
-  }, [amount, action, coinId]);
+  }, [amount, action, coinId, tokenInfo]);
 
   const handleBuy = async () => {
     if (!amount || parseFloat(amount) <= 0) {
@@ -94,7 +153,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
 
     const ethBalance = parseFloat(balance || '0');
     if (parseFloat(amount) > ethBalance) {
-      setActionError(`Balance insuficiente. Tienes ${ethBalance.toFixed(4)} ETH`);
+      setActionError(`Balance insuficiente. Tienes ${ethBalance.toFixed(4)} DOT`);
       return;
     }
 
@@ -171,31 +230,23 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
     }
   };
 
-  const handleToggleSubscription = async () => {
-    if (!tokenInfo) return;
-    
-    try {
-      setIsSubscribing(true);
-      
-      if (isSubscribed(tokenInfo.creator)) {
-        await unsubscribe(tokenInfo.creator);
-      } else {
-        await subscribe(tokenInfo.creator);
-      }
-    } catch (err: any) {
-      console.error('Error toggling subscription:', err);
-      alert(err.message || 'Error al cambiar suscripción');
-    } finally {
-      setIsSubscribing(false);
-    }
-  };
-
-  if (loading) {
+  if (loading || loadingMetadata) {
     return (
       <div className="p-6">
+        <div className="mb-6">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-slate-400 hover:text-emerald-400 transition-colors mb-4"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Volver
+          </button>
+        </div>
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mb-4" />
-          <p className="text-slate-400">Cargando token...</p>
+          <p className="text-slate-400">
+            {loading ? 'Cargando información del token desde blockchain...' : 'Cargando información del creador...'}
+          </p>
         </div>
       </div>
     );
@@ -234,57 +285,35 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
 
       {/* Token Card */}
       <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6 mb-6">
-        <div className="flex items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-4 flex-1">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
+        <div className="flex items-center gap-4 mb-6">
+          <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center overflow-hidden">
+            {coinImageUrl ? (
+              <img 
+                src={coinImageUrl} 
+                alt={tokenInfo.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
               <Coins className="w-8 h-8 text-emerald-400" />
+            )}
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-100">{tokenInfo.name}</h1>
               <div className="flex items-center gap-2 text-slate-400 text-sm">
                 <span>{tokenInfo.symbol}</span>
                 <span>•</span>
-                <span>Creador: {tokenInfo.creator.slice(0, 6)}...{tokenInfo.creator.slice(-4)}</span>
+              <span>
+                {creatorProfile?.displayName || `${tokenInfo.creator.slice(0, 6)}...${tokenInfo.creator.slice(-4)}`}
+              </span>
               </div>
             </div>
-          </div>
-          
-          {/* Botón Seguir/Dejar de seguir */}
-          {isConnected && address?.toLowerCase() !== tokenInfo.creator.toLowerCase() && (
-            <button
-              onClick={handleToggleSubscription}
-              disabled={isSubscribing}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                isSubscribed(tokenInfo.creator)
-                  ? 'bg-slate-800 border border-slate-700 text-slate-300 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400'
-                  : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              {isSubscribing ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  ...
-                </>
-              ) : isSubscribed(tokenInfo.creator) ? (
-                <>
-                  <UserMinus className="w-4 h-4" />
-                  Siguiendo
-                </>
-              ) : (
-                <>
-                  <UserPlus className="w-4 h-4" />
-                  Seguir
-                </>
-              )}
-            </button>
-          )}
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div className="bg-slate-800/30 rounded-lg p-4">
             <div className="text-slate-500 text-sm mb-1">Precio</div>
-            <div className="text-2xl font-bold text-emerald-400">{tokenInfo.price} ETH</div>
+            <div className="text-2xl font-bold text-emerald-400">{tokenInfo.price} DOT</div>
             <div className="text-slate-500 text-xs">por token</div>
           </div>
 
@@ -301,7 +330,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
             <div className="text-2xl font-bold text-purple-400">
               {(parseFloat(userBalance) * parseFloat(tokenInfo.price)).toFixed(4)}
             </div>
-            <div className="text-slate-500 text-xs">ETH</div>
+            <div className="text-slate-500 text-xs">DOT</div>
           </div>
         </div>
       </div>
@@ -346,7 +375,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
           {/* Input */}
           <div className="mb-4">
             <label className="block text-slate-300 text-sm mb-2">
-              {action === 'buy' ? 'Cantidad a gastar (ETH)' : `Cantidad a vender (${tokenInfo.symbol})`}
+              {action === 'buy' ? 'Cantidad a gastar (DOT)' : `Cantidad a vender (${tokenInfo.symbol})`}
             </label>
             <input
               type="number"
@@ -359,7 +388,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
             />
             <p className="text-slate-500 text-xs mt-1">
               {action === 'buy' 
-                ? `Balance: ${parseFloat(balance || '0').toFixed(4)} ETH`
+                ? `Balance: ${parseFloat(balance || '0').toFixed(4)} DOT`
                 : `Balance: ${parseFloat(userBalance).toFixed(2)} ${tokenInfo.symbol}`
               }
             </p>
@@ -375,7 +404,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
                 <ArrowDownUp className="w-4 h-4 text-slate-500" />
               </div>
               <div className="text-2xl font-bold text-emerald-400">
-                {parseFloat(estimatedTokens).toFixed(action === 'buy' ? 2 : 4)} {action === 'buy' ? tokenInfo.symbol : 'ETH'}
+                {parseFloat(estimatedTokens).toFixed(action === 'buy' ? 2 : 4)} {action === 'buy' ? tokenInfo.symbol : 'DOT'}
               </div>
               <div className="text-slate-500 text-xs mt-1">
                 Fee de plataforma: 1%
@@ -437,7 +466,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
             <div className="text-slate-400 text-sm space-y-2">
               <div className="flex justify-between">
                 <span>Precio del token:</span>
-                <span className="text-slate-100">{tokenInfo.price} ETH</span>
+                <span className="text-slate-100">{tokenInfo.price} DOT</span>
               </div>
               <div className="flex justify-between">
                 <span>Fee de plataforma:</span>
@@ -447,7 +476,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
                 <div className="flex justify-between">
                   <span>Precio final con fee:</span>
                   <span className="text-slate-100">
-                    {(parseFloat(tokenInfo.price) * 1.01).toFixed(6)} ETH
+                    {(parseFloat(tokenInfo.price) * 1.01).toFixed(6)} DOT
                   </span>
                 </div>
               )}

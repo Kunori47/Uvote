@@ -18,7 +18,7 @@ import { OnboardingPage } from './components/OnboardingPage';
 import React from 'react';
 
 export default function App() {
-  const [selectedCategory, setSelectedCategory] = useState('trending');
+  const [selectedCategory, setSelectedCategory] = useState('todos');
   const [currentPage, setCurrentPage] = useState<'home' | 'my-votes' | 'my-wallet' | 'my-subscriptions' | 'my-uvotes' | 'my-coin' | 'prediction-detail' | 'coin-detail' | 'creator-profile' | 'my-profile' | 'create-prediction' | 'create-token' | 'onboarding'>('home');
   const [previousPage, setPreviousPage] = useState<'home' | 'my-votes' | 'my-wallet' | 'my-subscriptions' | 'my-uvotes' | 'my-coin' | 'prediction-detail' | 'coin-detail' | 'creator-profile' | 'my-profile' | 'create-prediction' | 'create-token' | 'onboarding'>('home');
   const [selectedPredictionId, setSelectedPredictionId] = useState<string | null>(null);
@@ -84,7 +84,13 @@ export default function App() {
           ) : currentPage === 'my-subscriptions' ? (
             <MySubscriptionsPage onViewCreator={handleViewCreator} />
           ) : currentPage === 'my-uvotes' ? (
-            <MyUVotesPage onViewPrediction={(id) => handleViewPrediction(id, true)} />
+            <MyUVotesPage 
+              onViewPrediction={(id) => handleViewPrediction(id, true)}
+              onCreatePrediction={() => {
+                setPreviousPage('my-uvotes');
+                setCurrentPage('create-prediction');
+              }}
+            />
           ) : currentPage === 'my-coin' ? (
             <MyCoinPage />
           ) : currentPage === 'prediction-detail' && selectedPredictionId ? (

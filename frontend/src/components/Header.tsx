@@ -11,6 +11,7 @@ import React from "react";
 import { useWallet } from "../hooks/useWallet";
 import { getSigner } from "../lib/contracts";
 import { apiService, generateAuthToken } from "../lib/apiService";
+import { useMyCreatorToken } from "../hooks/useMyCreatorToken";
 
 interface HeaderProps {
   onProfileClick?: () => void;
@@ -21,6 +22,13 @@ interface HeaderProps {
 export function Header({ onProfileClick, onCreateClick, onCreateTokenClick, onAccessClick }: HeaderProps) {
   const { address, balance, isConnected, isConnecting, connect, disconnect, error } = useWallet();
   const [showCreateMenu, setShowCreateMenu] = React.useState(false);
+  const [userProfile, setUserProfile] = React.useState<{
+    avatarUrl: string;
+    displayName: string;
+  } | null>(null);
+  
+  // Verificar si el usuario ya tiene un token de creador
+  const { hasToken: hasCreatorToken } = useMyCreatorToken(address || null);
   
   const handleAccess = async () => {
     if (isConnecting) return;
@@ -60,12 +68,58 @@ export function Header({ onProfileClick, onCreateClick, onCreateTokenClick, onAc
     try {
       // Limpiar el estado local primero
       disconnect();
+      setUserProfile(null);
       // Reejecutar el flujo de acceso para que el usuario seleccione otra cuenta en la extensión
       await handleAccess();
     } catch (e) {
       console.error("Error cambiando de wallet:", e);
     }
   };
+
+  // Cargar perfil del usuario desde la BD (igual que MyProfilePage)
+  React.useEffect(() => {
+    const loadUserProfile = async () => {
+      if (!address || !isConnected) {
+        setUserProfile(null);
+        return;
+      }
+
+      try {
+        const user: any = await apiService.getUser(address);
+        if (!user) {
+          // Si no hay usuario en backend, usar fallback
+          const shortAddr = `${address.slice(0, 6)}...${address.slice(-4)}`;
+          setUserProfile({
+            avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${address}`,
+            displayName: shortAddr,
+          });
+          return;
+        }
+
+        const displayName =
+          user.display_name ||
+          (user.username ? `@${user.username}` : `${address.slice(0, 6)}...${address.slice(-4)}`);
+        const avatarUrl =
+          user.profile_image_url ||
+          `https://api.dicebear.com/7.x/avataaars/svg?seed=${address}`;
+
+        setUserProfile({
+          avatarUrl,
+          displayName,
+        });
+      } catch (e: any) {
+        console.error("Error loading user profile in header:", e);
+        // Fallback en caso de error
+        const shortAddr = `${address.slice(0, 6)}...${address.slice(-4)}`;
+        setUserProfile({
+          avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${address}`,
+          displayName: shortAddr,
+        });
+      }
+    };
+
+    loadUserProfile();
+  }, [address, isConnected]);
   
   return (
     <header className="fixed top-0 left-0 right-0 h-16 bg-[#0a0a0f] border-b border-slate-800/50 z-50 backdrop-blur-sm">
@@ -99,19 +153,23 @@ export function Header({ onProfileClick, onCreateClick, onCreateTokenClick, onAc
           {isConnected ? (
             <>
               {/* Balance + Cambiar wallet */}
-              <div className="flex flex-col items-end mr-2">
-                <span className="text-xs text-slate-400">Balance</span>
-                <span className="text-sm font-medium text-emerald-400">
-                  {balance ? `${parseFloat(balance).toFixed(4)} ETH` : '...'}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleChangeWallet}
-                  disabled={isConnecting}
-                  className="mt-1 text-[11px] text-slate-500 hover:text-emerald-400 hover:underline underline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Cambiar wallet
-                </button>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-900/30 border border-slate-800/50 hover:bg-slate-900/50 transition-colors">
+                <div className="flex flex-col items-end">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500 font-medium">Balance</span>
+                    <span className="text-sm font-semibold text-emerald-400 tabular-nums">
+                      {balance ? `${parseFloat(balance).toFixed(4)} DOT` : '...'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleChangeWallet}
+                    disabled={isConnecting}
+                    className="text-[10px] text-slate-500 hover:text-emerald-400 hover:underline underline-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Cambiar wallet
+                  </button>
+                </div>
               </div>
 
               <div className="relative">
@@ -131,32 +189,38 @@ export function Header({ onProfileClick, onCreateClick, onCreateTokenClick, onAc
                       onClick={() => setShowCreateMenu(false)}
                     />
                     <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-xl shadow-xl z-20 overflow-hidden">
-                      <button
-                        onClick={() => {
-                          setShowCreateMenu(false);
-                          onCreateTokenClick?.();
-                        }}
-                        className="w-full px-4 py-3 text-left hover:bg-slate-800 transition-colors flex items-center gap-3 text-slate-300 hover:text-emerald-400"
-                      >
-                        <Coins className="w-5 h-5" />
-                        <div>
-                          <div className="font-medium">Crear Token</div>
-                          <div className="text-xs text-slate-500">Token de creador</div>
-                        </div>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowCreateMenu(false);
-                          onCreateClick?.();
-                        }}
-                        className="w-full px-4 py-3 text-left hover:bg-slate-800 transition-colors flex items-center gap-3 text-slate-300 hover:text-emerald-400"
-                      >
-                        <FileText className="w-5 h-5" />
-                        <div>
-                          <div className="font-medium">Crear Predicción</div>
-                          <div className="text-xs text-slate-500">Nueva predicción</div>
-                        </div>
-                      </button>
+                      {/* Mostrar "Crear Token" solo si NO tiene token */}
+                      {!hasCreatorToken && (
+                        <button
+                          onClick={() => {
+                            setShowCreateMenu(false);
+                            onCreateTokenClick?.();
+                          }}
+                          className="w-full px-4 py-3 text-left hover:bg-slate-800 transition-colors flex items-center gap-3 text-slate-300 hover:text-emerald-400"
+                        >
+                          <Coins className="w-5 h-5" />
+                          <div>
+                            <div className="font-medium">Crear Token</div>
+                            <div className="text-xs text-slate-500">Token de creador</div>
+                          </div>
+                        </button>
+                      )}
+                      {/* Mostrar "Crear Predicción" solo si tiene token */}
+                      {hasCreatorToken && (
+                        <button
+                          onClick={() => {
+                            setShowCreateMenu(false);
+                            onCreateClick?.();
+                          }}
+                          className="w-full px-4 py-3 text-left hover:bg-slate-800 transition-colors flex items-center gap-3 text-slate-300 hover:text-emerald-400"
+                        >
+                          <FileText className="w-5 h-5" />
+                          <div>
+                            <div className="font-medium">Crear Predicción</div>
+                            <div className="text-xs text-slate-500">Nueva predicción</div>
+                          </div>
+                        </button>
+                      )}
                     </div>
                   </>
                 )}
@@ -170,9 +234,9 @@ export function Header({ onProfileClick, onCreateClick, onCreateTokenClick, onAc
               <Avatar 
                 className="w-10 h-10 cursor-pointer ring-2 ring-slate-700/50 hover:ring-emerald-600 transition-all" 
                 onClick={onProfileClick}
-                title={address || ''}
+                title={userProfile?.displayName || address || ''}
               >
-                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${address}`} />
+                <AvatarImage src={userProfile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${address}`} />
                 <AvatarFallback className="bg-slate-900 border border-emerald-600">
                   <User className="w-5 h-5 text-emerald-500" />
                 </AvatarFallback>

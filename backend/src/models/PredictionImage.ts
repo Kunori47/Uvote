@@ -6,8 +6,9 @@ export interface PredictionImage {
   prediction_market_address: string;
   chain_id: number;
   creator_address?: string | null;
-  image_url: string;
+  image_url?: string | null; // Opcional si solo se guardan tags
   image_path?: string | null;
+  tags?: string[]; // Array de tags/categorías
   created_at?: Date;
 }
 
@@ -18,8 +19,9 @@ export const PredictionImageModel = {
       prediction_market_address: data.prediction_market_address.toLowerCase(),
       chain_id: data.chain_id,
       creator_address: data.creator_address ? data.creator_address.toLowerCase() : null,
-      image_url: data.image_url,
+      image_url: data.image_url || null,
       image_path: data.image_path || null,
+      tags: data.tags || [],
     }).select().single();
 
     return result?.data?.[0] || null;

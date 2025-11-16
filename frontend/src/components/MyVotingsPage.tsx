@@ -1,11 +1,36 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Filter, Calendar, CheckCircle2, XCircle, Clock, Trophy, Loader2, AlertCircle, TrendingUp, Wallet } from 'lucide-react';
 import React from 'react';
 import { useWallet } from '../hooks/useWallet';
 import { useMyBets } from '../hooks/useMyBets';
+import { apiService } from '../lib/apiService';
+import { CONTRACT_ADDRESSES, NETWORK_CONFIG } from '../lib/contracts';
+import { predictionMarketService } from '../lib/contractService';
 
 const STATUS_NAMES = ['Activa', 'Cerrada', 'Cooldown', 'En Revisión', 'Confirmada', 'Disputada', 'Cancelada'];
 const STATUS_COLORS = ['blue', 'slate', 'yellow', 'orange', 'emerald', 'red', 'gray'];
+
+// Colores de opciones (igual que en PredictionCard)
+const optionColors = [
+  { border: 'border-emerald-500', text: 'text-emerald-400', bg: 'bg-emerald-600/20', bgBorder: 'bg-emerald-500/40' },
+  { border: 'border-red-500', text: 'text-red-400', bg: 'bg-red-600/20', bgBorder: 'bg-red-500/40' },
+  { border: 'border-blue-500', text: 'text-blue-400', bg: 'bg-blue-600/20', bgBorder: 'bg-blue-500/40' },
+  { border: 'border-amber-500', text: 'text-amber-400', bg: 'bg-amber-600/20', bgBorder: 'bg-amber-500/40' },
+  { border: 'border-orange-500', text: 'text-orange-400', bg: 'bg-orange-600/20', bgBorder: 'bg-orange-500/40' },
+  { border: 'border-purple-500', text: 'text-purple-400', bg: 'bg-purple-600/20', bgBorder: 'bg-purple-500/40' },
+];
+
+// Helper para obtener color de opción (igual que en PredictionCard)
+const getColorForOption = (label: string, index: number) => {
+  const normalizedLabel = label.toLowerCase();
+  if (normalizedLabel === 'sí' || normalizedLabel === 'si') {
+    return optionColors[0]; // Verde para Sí
+  }
+  if (normalizedLabel === 'no') {
+    return optionColors[1]; // Rojo para No
+  }
+  return optionColors[index % optionColors.length];
+};
 
 const statusFilters = [
   { id: 'all', label: 'Todas' },
@@ -32,6 +57,10 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [resultFilter, setResultFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [predictionImages, setPredictionImages] = useState<Record<string, string>>({});
+  const [potentialReturns, setPotentialReturns] = useState<Record<string, string>>({});
+  const [predictionOptions, setPredictionOptions] = useState<Record<string, Array<{ description: string; totalAmount: string }>>>({});
+  const [loadingImages, setLoadingImages] = useState(false);
 
   // Filtrar apuestas
   const filteredBets = useMemo(() => {
@@ -75,6 +104,109 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
     if (bet.predictionStatus < 4) return 'pending';
     if (bet.canClaim) return 'won';
     return 'lost';
+  };
+
+  // Cargar imágenes de predicciones
+  useEffect(() => {
+    const loadImages = async () => {
+      if (bets.length === 0) return;
+      
+      setLoadingImages(true);
+      const imageMap: Record<string, string> = {};
+      const returnsMap: Record<string, string> = {};
+      const optionsMap: Record<string, Array<{ description: string; totalAmount: string }>> = {};
+
+      await Promise.all(
+        bets.map(async (bet) => {
+          // Cargar imagen
+          try {
+            const img = await apiService.getPredictionImage(
+              bet.predictionId,
+              CONTRACT_ADDRESSES.PredictionMarket,
+              NETWORK_CONFIG.chainId
+            );
+            if (img && typeof img === 'object' && 'image_url' in img && img.image_url) {
+              imageMap[bet.predictionId] = img.image_url as string;
+            }
+          } catch (err) {
+            console.error(`Error loading image for prediction ${bet.predictionId}:`, err);
+          }
+
+          // Cargar opciones para predicciones en cooldown o confirmadas (con 2 opciones)
+          if ((bet.predictionStatus === 2 || bet.predictionStatus === 4) && bet.predictionStatus >= 0) {
+            try {
+              const options = await predictionMarketService.getPredictionOptions(bet.predictionId);
+              if (options.length === 2) {
+                optionsMap[bet.predictionId] = options.map(opt => ({
+                  description: opt.description,
+                  totalAmount: opt.totalAmount,
+                }));
+              }
+            } catch (err) {
+              console.error(`Error loading options for prediction ${bet.predictionId}:`, err);
+            }
+          }
+
+          // Calcular retorno potencial para predicciones activas
+          if (bet.predictionStatus <= 1) {
+            try {
+              const result = await predictionMarketService.calculatePotentialWinnings(
+                bet.predictionId,
+                bet.primaryOptionIndex,
+                bet.totalBetAmount
+              );
+              returnsMap[bet.predictionId] = result.winnings;
+            } catch (err) {
+              console.error(`Error calculating potential return for prediction ${bet.predictionId}:`, err);
+            }
+          } else if (bet.predictionStatus === 4 && bet.canClaim) {
+            // Para predicciones finalizadas ganadas, calcular retorno real
+            try {
+              const result = await predictionMarketService.calculateClaimableReward(
+                bet.predictionId,
+                address || ''
+              );
+              if (result.hasWinningBets) {
+                returnsMap[bet.predictionId] = result.claimable;
+              }
+            } catch (err) {
+              console.error(`Error calculating claimable reward for prediction ${bet.predictionId}:`, err);
+            }
+          }
+        })
+      );
+
+      setPredictionImages(imageMap);
+      setPotentialReturns(returnsMap);
+      setPredictionOptions(optionsMap);
+      setLoadingImages(false);
+    };
+
+    loadImages();
+  }, [bets, address]);
+
+  // Formatear fecha
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp * 1000).toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+  };
+
+  // Formatear fecha completa para fecha de fin
+  const formatFullDate = (timestamp: number) => {
+    if (timestamp === 0 || timestamp >= 2**256 - 1) return '∞';
+    return new Date(timestamp * 1000).toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+  };
+
+  // Formatear número con puntos
+  const formatNumber = (num: number) => {
+    return num.toLocaleString('es-ES');
   };
 
   if (!isConnected) {
@@ -220,85 +352,181 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {filteredBets.map((bet) => {
             const result = getBetResult(bet);
-            const statusColor = STATUS_COLORS[bet.predictionStatus];
+            const isFinished = bet.predictionStatus === 4;
+            const isActive = bet.predictionStatus <= 1;
+            const imageUrl = predictionImages[bet.predictionId] || `https://api.dicebear.com/7.x/shapes/svg?seed=${bet.predictionId}`;
+            const returnAmount = potentialReturns[bet.predictionId];
+            const betReturn = returnAmount ? parseFloat(returnAmount) : 0;
+            const betAmount = parseFloat(bet.totalBetAmount);
+            const profit = betReturn - betAmount;
             
             return (
               <div
                 key={bet.predictionId}
                 onClick={() => onViewPrediction(bet.predictionId)}
-                className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-5 hover:bg-slate-900/70 hover:border-slate-700/50 transition-all cursor-pointer"
+                className="bg-slate-900/50 border border-slate-800/50 rounded-xl overflow-hidden hover:bg-slate-900/70 hover:border-slate-700/50 transition-all cursor-pointer flex items-center p-4 gap-4"
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-slate-100 mb-2">
+                {/* Imagen de la predicción - Izquierda (encapsulada) */}
+                <div className="relative w-40 h-32 bg-slate-800/50 rounded-lg overflow-hidden flex-shrink-0 border border-slate-800/50">
+                  <img
+                    src={imageUrl}
+                    alt={bet.predictionTitle}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target;
+                      if (target && 'src' in target) {
+                        (target as { src: string }).src = `https://api.dicebear.com/7.x/shapes/svg?seed=${bet.predictionId}`;
+                      }
+                    }}
+                  />
+                  
+                  {/* Estado en esquina superior derecha */}
+                  <div className="absolute top-2 right-2">
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                      isFinished
+                        ? 'bg-slate-900/90 backdrop-blur-sm text-slate-300 border border-slate-700/50'
+                        : 'bg-blue-500/90 backdrop-blur-sm text-white'
+                    }`}>
+                      <Clock className="w-3.5 h-3.5" />
+                      {STATUS_NAMES[bet.predictionStatus]}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Separador visual */}
+                <div className="w-px h-full bg-slate-800/50 flex-shrink-0"></div>
+
+                {/* Contenido - Derecha */}
+                <div className="flex-1 flex flex-col justify-center min-w-0 gap-3">
+                  {/* Sección superior */}
+                  <div className="space-y-2">
+                    {/* Título */}
+                    <h3 className="text-lg font-bold text-slate-100 line-clamp-1 leading-tight">
                       {bet.predictionTitle}
                     </h3>
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <span className={`px-2 py-1 rounded-lg text-xs bg-${statusColor}-500/10 border border-${statusColor}-500/30 text-${statusColor}-400`}>
-                        {STATUS_NAMES[bet.predictionStatus]}
-                      </span>
-                      {result === 'won' && (
-                        <span className="px-2 py-1 rounded-lg text-xs bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center gap-1">
-                          <Trophy className="w-3 h-3" />
-                          Ganaste
-                        </span>
-                      )}
-                      {result === 'lost' && (
-                        <span className="px-2 py-1 rounded-lg text-xs bg-red-500/10 border border-red-500/30 text-red-400 flex items-center gap-1">
-                          <XCircle className="w-3 h-3" />
-                          Perdiste
-                        </span>
-                      )}
-                      {result === 'pending' && (
-                        <span className="px-2 py-1 rounded-lg text-xs bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          Pendiente
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="text-right">
-                    <div className="text-sm text-slate-500 mb-1">Total apostado</div>
-                    <div className="text-xl font-bold text-emerald-400">
-                      {bet.totalBetAmount} {bet.creatorTokenSymbol}
-                    </div>
-                  </div>
-                </div>
 
-                {/* Bets Detail */}
-                <div className="space-y-2 pt-4 border-t border-slate-800">
-                  <div className="text-sm text-slate-400 mb-2">Tus apuestas:</div>
-                  {bet.bets.map((userBet, index) => (
-                    <div key={index} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${
-                          bet.predictionStatus === 4 && userBet.optionIndex === bet.winningOption
-                            ? 'bg-emerald-400'
-                            : 'bg-slate-600'
-                        }`}></div>
-                        <span className="text-slate-300">{userBet.optionDescription}</span>
-                        {bet.predictionStatus === 4 && userBet.optionIndex === bet.winningOption && (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                        )}
+                    {/* Votaste y metadata en fila */}
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-slate-500 text-sm">Votaste:</span>
+                        {/* Mostrar todas las opciones únicas que votó con sus colores correspondientes */}
+                        {Array.from(new Set(bet.bets.map(b => b.optionIndex))).map((optionIndex, idx) => {
+                          const option = bet.bets.find(b => b.optionIndex === optionIndex);
+                          if (!option) return null;
+                          
+                          const color = getColorForOption(option.optionDescription, optionIndex);
+                          return (
+                            <span 
+                              key={idx}
+                              className={`inline-block px-2.5 py-1 ${color.bg} border ${color.border} ${color.text} rounded-lg text-sm font-medium`}
+                            >
+                              {option.optionDescription}
+                            </span>
+                          );
+                        })}
                       </div>
-                      <span className="text-slate-400">{userBet.amount} tokens</span>
+                      
+                      <div className="flex items-center gap-3 text-slate-500 text-sm">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="w-4 h-4" />
+                          <span>{formatDate(bet.createdAt)}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Trophy className="w-4 h-4" />
+                          <span>{formatNumber(bet.totalParticipants)} participantes</span>
+                        </div>
+                      </div>
                     </div>
-                  ))}
                 </div>
 
-                {/* Action Button */}
-                {bet.canClaim && (
-                  <div className="mt-4 pt-4 border-t border-slate-800">
-                    <div className="flex items-center justify-between">
-                      <span className="text-emerald-400 text-sm font-medium">¡Puedes reclamar tus ganancias!</span>
-                      <TrendingUp className="w-5 h-5 text-emerald-400" />
+                  {/* Detalles de apuesta - Sección inferior */}
+                  <div className="grid grid-cols-3 gap-x-6 gap-y-2 pt-4 border-t border-slate-800/50">
+                    {/* Apostado */}
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-slate-500 text-xs">Apostado</span>
+                      <span className="text-slate-200 font-semibold text-base">{betAmount.toFixed(2)} {bet.creatorTokenSymbol}</span>
                     </div>
+
+                    {/* Retorno o Retorno potencial */}
+                    {(() => {
+                      // Determinar si hay opciones cargadas y es una predicción de 2 opciones
+                      const options = predictionOptions[bet.predictionId];
+                      const hasTwoOptions = options && options.length === 2;
+                      
+                      // Si hay 2 opciones y la predicción está en cooldown o confirmada, encontrar la más apostada
+                      let mostBetOption: { description: string; totalAmount: string } | null = null;
+                      if (hasTwoOptions && (bet.predictionStatus === 2 || bet.predictionStatus === 4)) {
+                        mostBetOption = options.reduce((max, opt) => {
+                          return parseFloat(opt.totalAmount) > parseFloat(max.totalAmount) ? opt : max;
+                        });
+                      }
+                      
+                      return isFinished && bet.canClaim ? (
+                        <>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-slate-500 text-xs">Retorno</span>
+                            <span className="text-emerald-400 font-semibold text-base">{betReturn.toFixed(2)} {bet.creatorTokenSymbol}</span>
+                          </div>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-slate-500 text-xs">Resultado</span>
+                            {hasTwoOptions && mostBetOption ? (
+                              <span className="text-emerald-400 font-semibold text-base flex items-center gap-1.5">
+                                <CheckCircle2 className="w-4 h-4" />
+                                {mostBetOption.description}
+                              </span>
+                            ) : (
+                              <span className="text-emerald-400 font-semibold text-base flex items-center gap-1.5">
+                                <CheckCircle2 className="w-4 h-4" />
+                                Ganaste
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-0.5 col-span-3">
+                            <span className="text-slate-500 text-xs">Ganancia/Pérdida</span>
+                            <span className="text-emerald-400 font-semibold text-base">+{profit.toFixed(2)} {bet.creatorTokenSymbol}</span>
+                          </div>
+                        </>
+                      ) : isFinished && !bet.canClaim ? (
+                        <>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-slate-500 text-xs">Resultado</span>
+                            {hasTwoOptions && mostBetOption ? (
+                              <span className="text-red-400 font-semibold text-base flex items-center gap-1.5">
+                                <XCircle className="w-4 h-4" />
+                                {mostBetOption.description}
+                              </span>
+                            ) : (
+                              <span className="text-red-400 font-semibold text-base flex items-center gap-1.5">
+                                <XCircle className="w-4 h-4" />
+                                Perdiste
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-0.5 col-span-2">
+                            <span className="text-slate-500 text-xs">Ganancia/Pérdida</span>
+                            <span className="text-red-400 font-semibold text-base">-{betAmount.toFixed(2)} {bet.creatorTokenSymbol}</span>
+                          </div>
+                        </>
+                      ) : (
+                      <>
+                        {returnAmount && (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-slate-500 text-xs">Retorno potencial</span>
+                            <span className="text-blue-400 font-semibold text-base">{betReturn.toFixed(2)} {bet.creatorTokenSymbol}</span>
+                          </div>
+                        )}
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-slate-500 text-xs">Finaliza</span>
+                          <span className="text-slate-300 font-semibold text-base">{formatFullDate(bet.closesAt)}</span>
+                        </div>
+                      </>
+                    );
+                    })()}
                   </div>
-                )}
+                </div>
               </div>
             );
           })}

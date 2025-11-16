@@ -15,6 +15,7 @@ import {
   X,
   DollarSign,
   Settings,
+  Loader2,
 } from "lucide-react";
 import { PredictionCard } from "./PredictionCard";
 import { Button } from "./ui/button";
@@ -165,22 +166,22 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
   const [isEditingProfile, setIsEditingProfile] =
     useState(false);
   const [isEditingCoin, setIsEditingCoin] = useState(false);
-  const [profile, setProfile] = useState<UserProfile>(mockUserProfile);
-  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
-    name: mockUserProfile.name,
-    username: mockUserProfile.username,
-    bio: mockUserProfile.bio,
-    category: mockUserProfile.category,
-    email: mockUserProfile.email,
-    twitter: mockUserProfile.socialLinks?.twitter || "",
-    youtube: mockUserProfile.socialLinks?.youtube || "",
-    twitch: mockUserProfile.socialLinks?.twitch || "",
+    name: "",
+    username: "",
+    bio: "",
+    category: "Gaming",
+    email: "",
+    twitter: "",
+    youtube: "",
+    twitch: "",
   });
   const [coinForm, setCoinForm] = useState({
-    coinSymbol: profile.coinSymbol || "",
-    coinValue: profile.coinValue?.toString() || "",
+    coinSymbol: "",
+    coinValue: "",
   });
   const [predictionThumbnails, setPredictionThumbnails] = useState<
     Record<string, string>
@@ -280,8 +281,8 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
       return {
         id: pred.id,
         creator: {
-          name: profile.name,
-          avatar: profile.avatar,
+          name: profile?.name || "Usuario",
+          avatar: profile?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${address}`,
           verified: true,
         },
         question: pred.title,
@@ -295,7 +296,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
         status,
       };
     });
-  }, [myPredictionsRaw, profile.name, profile.avatar, predictionThumbnails]);
+  }, [myPredictionsRaw, profile, address, predictionThumbnails]);
 
   const totalUserPredictions = myPredictionsRaw.length;
   const activeUserPredictions = myPredictionsRaw.filter(
@@ -304,6 +305,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
 
   // Cuando llega el perfil desde backend, sincronizar el formulario de edición
   useEffect(() => {
+    if (profile) {
     setEditForm({
       name: profile.name,
       username: profile.username,
@@ -314,13 +316,19 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
       youtube: profile.socialLinks?.youtube || "",
       twitch: profile.socialLinks?.twitch || "",
     });
+      setCoinForm({
+        coinSymbol: profile.coinSymbol || "",
+        coinValue: profile.coinValue?.toString() || "",
+      });
+    }
   }, [profile]);
 
   // Cargar perfil real desde Supabase (backend) usando la wallet
   useEffect(() => {
     const loadProfile = async () => {
       if (!address || !isConnected) {
-        setProfile(mockUserProfile);
+        setProfile(null);
+        setLoadingProfile(false);
         return;
       }
 
@@ -329,16 +337,22 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
         setProfileError(null);
 
         const user: any = await apiService.getUser(address);
+        
+        // Si no hay usuario en backend, crear perfil básico
         if (!user) {
-          // Si no hay usuario en backend, mostramos algo básico basado en la wallet
           const shortAddr = `${address.slice(0, 6)}...${address.slice(-4)}`;
-          setProfile((prev) => ({
-            ...prev,
+          const followersCount = await apiService.getCreatorFollowersCount(address);
+          
+          setProfile({
+            ...mockUserProfile,
+            id: address,
             name: shortAddr,
-            username: user?.username ? `@${user.username}` : shortAddr,
+            username: shortAddr,
             bio: "",
             avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${address}`,
-          }));
+            followers: followersCount,
+            joinedDate: new Date().toISOString(),
+          });
           return;
         }
 
@@ -353,8 +367,9 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
         // Si Supabase no marcó is_creator, igualmente calculamos seguidores desde subscriptions
         const followersCount = await apiService.getCreatorFollowersCount(address);
 
-        setProfile((prev) => ({
-          ...prev,
+        setProfile({
+          ...mockUserProfile,
+          id: address,
           name: displayName,
           username: usernameFormatted,
           bio: user.bio || "",
@@ -362,8 +377,8 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
             user.profile_image_url ||
             `https://api.dicebear.com/7.x/avataaars/svg?seed=${address}`,
           followers: followersCount,
-          joinedDate: user.created_at || prev.joinedDate,
-        }));
+          joinedDate: user.created_at || new Date().toISOString(),
+        });
       } catch (e: any) {
         console.error("Error loading profile from backend:", e);
         setProfileError(e?.message || "Error al cargar tu perfil");
@@ -379,14 +394,16 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
   useEffect(() => {
     const loadCreatorCoin = async () => {
       // Si no hay wallet conectada o el hook indica que no hay token, limpiamos el estado
-      if (!address || !isConnected || !hasCreatorToken || !myCreatorToken) {
-        setProfile((prev) => ({
-          ...prev,
+      if (!address || !isConnected || !hasCreatorToken || !myCreatorToken || !profile) {
+        if (profile) {
+          setProfile({
+            ...profile,
           hasCreatorCoin: false,
           coinSymbol: undefined,
           coinValue: undefined,
           totalEarnings: undefined,
-        }));
+          });
+        }
         return;
       }
 
@@ -394,20 +411,20 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
         // Reutilizamos los datos que ya calcula useMyCreatorToken
         const earningsEth = await tokenExchangeService.getCreatorEarnings(address);
 
-        setProfile((prev) => ({
-          ...prev,
+        setProfile({
+          ...profile,
           hasCreatorCoin: true,
           coinSymbol: myCreatorToken.symbol,
           coinValue: parseFloat(myCreatorToken.price),
           totalEarnings: parseFloat(earningsEth),
-        }));
+        });
       } catch (e) {
         console.error("Error loading creator coin info:", e);
       }
     };
 
     loadCreatorCoin();
-  }, [address, isConnected, hasCreatorToken, myCreatorToken]);
+  }, [address, isConnected, hasCreatorToken, myCreatorToken, profile]);
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -424,6 +441,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
   };
 
   const handleSaveProfile = () => {
+    if (!profile) return;
     setProfile({
       ...profile,
       name: editForm.name,
@@ -441,6 +459,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
   };
 
   const handleCancelEdit = () => {
+    if (!profile) return;
     setEditForm({
       name: profile.name,
       username: profile.username,
@@ -455,6 +474,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
   };
 
   const handleSaveCoin = () => {
+    if (!profile) return;
     setProfile({
       ...profile,
       coinSymbol: coinForm.coinSymbol,
@@ -463,6 +483,30 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
     });
     setIsEditingCoin(false);
   };
+
+  // Pantalla de carga
+  if (loadingProfile || !profile) {
+    return (
+      <div className="pb-6">
+        {/* Back Button */}
+        <div className="p-6 pb-0">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-slate-400 hover:text-slate-200 transition-colors mb-6"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Volver</span>
+          </button>
+        </div>
+
+        {/* Loading State */}
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
+          <p className="text-slate-400 text-lg">Cargando tu perfil...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-6">
@@ -577,28 +621,38 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
             </div>
           </div>
 
-          {profile.hasCreatorCoin && (
-            <>
-              <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4">
-                <div className="flex items-center gap-2 text-slate-400 mb-2">
-                  <Coins className="w-4 h-4" />
-                  <span className="text-sm">Moneda</span>
-                </div>
+          {/* Contenedor de Moneda - siempre visible */}
+          <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4">
+            <div className="flex items-center gap-2 text-slate-400 mb-2">
+              <Coins className="w-4 h-4" />
+              <span className="text-sm">Moneda</span>
+            </div>
+            {hasCreatorToken && myCreatorToken ? (
+              <>
                 <div className="text-slate-100 text-2xl">
-                  {profile.coinValue}u
+                  {parseFloat(myCreatorToken.price).toFixed(2)} DOT
                 </div>
                 <div className="text-slate-500 text-xs mt-1">
-                  {profile.coinSymbol}
+                  {myCreatorToken.symbol}
                 </div>
+              </>
+            ) : (
+              <div className="text-slate-500 text-sm">
+                Sin moneda
               </div>
+            )}
+          </div>
 
+          {/* Contenedores adicionales solo si tiene moneda */}
+          {profile.hasCreatorCoin && (
+            <>
               <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4">
                 <div className="flex items-center gap-2 text-slate-400 mb-2">
                   <TrendingUp className="w-4 h-4" />
                   <span className="text-sm">Ganancias</span>
                 </div>
                 <div className="text-slate-100 text-2xl">
-                  {formatNumber(profile.totalEarnings || 0)}u
+                  {formatNumber(profile.totalEarnings || 0)} DOT
                 </div>
               </div>
             </>
@@ -765,7 +819,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                       Precio Actual
                     </div>
                     <div className="text-emerald-400">
-                      {profile.coinValue}u
+                      {profile.coinValue} DOT
                     </div>
                   </div>
                 </div>
@@ -790,26 +844,10 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                 <div className="flex items-center gap-2 mb-4">
                   <Award className="w-5 h-5 text-emerald-400" />
                   <h3 className="text-slate-100">
-                    Rendimiento
+                    Predicciones
                   </h3>
                 </div>
                 <div className="space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-slate-400 text-sm">
-                        Tasa de Acierto
-                      </span>
-                      <span className="text-emerald-400">
-                        {profile.winRate}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-800/50 rounded-full h-2">
-                      <div
-                        className="bg-emerald-500 h-2 rounded-full"
-                        style={{ width: `${profile.winRate}%` }}
-                      />
-                    </div>
-                  </div>
                   <div>
                     <div className="text-slate-500 text-sm mb-1">
                       Predicciones Totales
@@ -887,8 +925,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                       <div className="text-slate-200 text-xl">
                         {formatNumber(
                           profile.totalEarnings || 0,
-                        )}
-                        u
+                        )} DOT
                       </div>
                     </div>
                     <div>
@@ -896,7 +933,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                         Valor Moneda
                       </div>
                       <div className="text-slate-200 text-xl">
-                        {profile.coinValue}u
+                        {profile.coinValue} DOT
                       </div>
                     </div>
                     <div>
@@ -909,8 +946,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                             (profile.totalEarnings || 0) /
                               profile.totalPredictions,
                           ),
-                        )}
-                        u
+                        )} DOT
                       </div>
                     </div>
                   </div>
@@ -1082,7 +1118,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                     onChange={(e) =>
                       setEditForm({
                         ...editForm,
-                        name: e.target.value,
+                        name: (e.target as HTMLInputElement).value,
                       })
                     }
                     className="bg-slate-800/50 border-slate-700/50 text-slate-200"
@@ -1097,7 +1133,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                     onChange={(e) =>
                       setEditForm({
                         ...editForm,
-                        username: e.target.value,
+                        username: (e.target as HTMLInputElement).value,
                       })
                     }
                     className="bg-slate-800/50 border-slate-700/50 text-slate-200"
@@ -1114,7 +1150,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                   onChange={(e) =>
                     setEditForm({
                       ...editForm,
-                      category: e.target.value,
+                      category: (e.target as HTMLSelectElement).value,
                     })
                   }
                   className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-xl text-slate-200 focus:outline-none focus:border-emerald-500/50"
@@ -1137,7 +1173,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                   onChange={(e) =>
                     setEditForm({
                       ...editForm,
-                      bio: e.target.value,
+                      bio: (e.target as HTMLTextAreaElement).value,
                     })
                   }
                   rows={4}
@@ -1155,7 +1191,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                   onChange={(e) =>
                     setEditForm({
                       ...editForm,
-                      email: e.target.value,
+                      email: (e.target as HTMLInputElement).value,
                     })
                   }
                   className="bg-slate-800/50 border-slate-700/50 text-slate-200"
@@ -1173,7 +1209,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                     onChange={(e) =>
                       setEditForm({
                         ...editForm,
-                        twitter: e.target.value,
+                        twitter: (e.target as HTMLInputElement).value,
                       })
                     }
                     className="bg-slate-800/50 border-slate-700/50 text-slate-200"
@@ -1184,7 +1220,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                     onChange={(e) =>
                       setEditForm({
                         ...editForm,
-                        youtube: e.target.value,
+                        youtube: (e.target as HTMLInputElement).value,
                       })
                     }
                     className="bg-slate-800/50 border-slate-700/50 text-slate-200"
@@ -1195,7 +1231,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                     onChange={(e) =>
                       setEditForm({
                         ...editForm,
-                        twitch: e.target.value,
+                        twitch: (e.target as HTMLInputElement).value,
                       })
                     }
                     className="bg-slate-800/50 border-slate-700/50 text-slate-200"
@@ -1252,7 +1288,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                   onChange={(e) =>
                     setCoinForm({
                       ...coinForm,
-                      coinSymbol: e.target.value.toUpperCase(),
+                      coinSymbol: (e.target as HTMLInputElement).value.toUpperCase(),
                     })
                   }
                   maxLength={6}
@@ -1262,7 +1298,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
 
               <div>
                 <label className="text-slate-300 text-sm mb-2 block">
-                  Precio Inicial (u)
+                  Precio Inicial (DOT)
                 </label>
                 <Input
                   type="number"
@@ -1272,7 +1308,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                   onChange={(e) =>
                     setCoinForm({
                       ...coinForm,
-                      coinValue: e.target.value,
+                      coinValue: (e.target as HTMLInputElement).value,
                     })
                   }
                   className="bg-slate-800/50 border-slate-700/50 text-slate-200"

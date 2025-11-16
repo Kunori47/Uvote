@@ -1,51 +1,168 @@
-import { useState, useMemo } from 'react';
-import { Plus, Filter, Calendar, CheckCircle2, Clock, Users, TrendingUp, AlertCircle, Loader2, Wallet, BarChart3, X } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Plus, Filter, Calendar, CheckCircle2, Clock, Users, TrendingUp, AlertCircle, Loader2, Wallet, BarChart3, X, Share2, Edit, Eye } from 'lucide-react';
 import React from 'react';
 import { useWallet } from '../hooks/useWallet';
 import { useCreatorPredictions } from '../hooks/useCreatorPredictions';
-import { predictionMarketService } from '../lib/contractService';
+import { predictionMarketService, creatorTokenService } from '../lib/contractService';
+import { apiService } from '../lib/apiService';
+import { CONTRACT_ADDRESSES, NETWORK_CONFIG } from '../lib/contracts';
 
 const STATUS_NAMES = ['Activa', 'Cerrada', 'Cooldown', 'En Revisión', 'Confirmada', 'Disputada', 'Cancelada'];
 const STATUS_COLORS = ['emerald', 'slate', 'yellow', 'orange', 'green', 'red', 'gray'];
 const STATUS_ICONS = [Clock, CheckCircle2, Clock, AlertCircle, CheckCircle2, AlertCircle, CheckCircle2];
 
-const statusFilters = [
-  { id: 'all', label: 'Todas' },
-  { id: 'active', label: 'Activas (0)' },
-  { id: 'closed', label: 'Cerradas (1)' },
-  { id: 'cooldown', label: 'En Cooldown (2)' },
-  { id: 'finished', label: 'Finalizadas (4)' },
+// Colores de opciones (igual que en PredictionCard)
+const optionColors = [
+  { border: 'border-emerald-500', text: 'text-emerald-400', bg: 'bg-emerald-500', bgBar: 'bg-emerald-500' },
+  { border: 'border-red-500', text: 'text-red-400', bg: 'bg-red-500', bgBar: 'bg-red-500' },
+  { border: 'border-blue-500', text: 'text-blue-400', bg: 'bg-blue-500', bgBar: 'bg-blue-500' },
+  { border: 'border-amber-500', text: 'text-amber-400', bg: 'bg-amber-500', bgBar: 'bg-amber-500' },
+  { border: 'border-orange-500', text: 'text-orange-400', bg: 'bg-orange-500', bgBar: 'bg-orange-500' },
+  { border: 'border-purple-500', text: 'text-purple-400', bg: 'bg-purple-500', bgBar: 'bg-purple-500' },
 ];
+
+// Helper para obtener color de opción
+const getColorForOption = (label: string, index: number) => {
+  const normalizedLabel = label.toLowerCase();
+  if (normalizedLabel === 'sí' || normalizedLabel === 'si') {
+    return optionColors[0]; // Verde para Sí
+  }
+  if (normalizedLabel === 'no') {
+    return optionColors[1]; // Rojo para No
+  }
+  return optionColors[index % optionColors.length];
+};
+
+// Mapeo de categorías a nombres en español
+const categoryNames: Record<string, string> = {
+  'sports': 'Deportes',
+  'gaming': 'Gaming',
+  'crypto': 'Cripto',
+  'tech': 'Tech',
+  'politics': 'Política',
+  'entertainment': 'Entretenimiento',
+  'finance': 'Finanzas',
+  'science': 'Ciencia',
+  'music': 'Música',
+  'fashion': 'Moda',
+  'food': 'Comida',
+  'other': 'Otros',
+};
+
+// Los statusFilters ahora se generan dinámicamente con las estadísticas reales
 
 interface MyUVotesPageProps {
   onViewPrediction: (id: string) => void;
+  onCreatePrediction?: () => void;
 }
 
-export function MyUVotesPage({ onViewPrediction }: MyUVotesPageProps) {
+export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesPageProps) {
   const { address, isConnected } = useWallet();
   const { predictions, loading, error } = useCreatorPredictions(address);
   
   const [statusFilter, setStatusFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
-  const [closingPredictionId, setClosingPredictionId] = useState<string | null>(null);
+  const [predictionImages, setPredictionImages] = useState<Record<string, string>>({});
+  const [predictionTags, setPredictionTags] = useState<Record<string, string[]>>({});
+  const [predictionOptions, setPredictionOptions] = useState<Record<string, Array<{ description: string; totalAmount: string; totalBettors: number }>>>({});
+  const [predictionTokenSymbols, setPredictionTokenSymbols] = useState<Record<string, string>>({});
+  const [loadingMetadata, setLoadingMetadata] = useState(false);
 
-  const handleClosePrediction = async (e: React.MouseEvent, predictionId: string) => {
-    e.stopPropagation(); // Prevenir que se abra la predicción
-    
-    if (!confirm('¿Estás seguro de que quieres cerrar esta predicción? Una vez cerrada, no se podrán hacer más apuestas.')) {
+  // Cargar imágenes, tags y opciones de predicciones
+  useEffect(() => {
+    const loadPredictionMetadata = async () => {
+      if (predictions.length === 0) {
+        setPredictionImages({});
+        setPredictionTags({});
+        setPredictionOptions({});
+        setPredictionTokenSymbols({});
       return;
     }
     
     try {
-      setClosingPredictionId(predictionId);
-      await predictionMarketService.closePrediction(predictionId);
-      // El hook se actualizará automáticamente
-    } catch (err: any) {
-      console.error('Error cerrando predicción:', err);
-      alert(err.message || 'Error al cerrar predicción');
+        setLoadingMetadata(true);
+        const imageMap: Record<string, string> = {};
+        const tagMap: Record<string, string[]> = {};
+        const optionsMap: Record<string, Array<{ description: string; totalAmount: string; totalBettors: number }>> = {};
+        const tokenSymbolMap: Record<string, string> = {};
+
+        await Promise.all(
+          predictions.map(async (pred) => {
+            // Cargar imagen y tags
+            try {
+              const img = await apiService.getPredictionImage(
+                pred.id,
+                CONTRACT_ADDRESSES.PredictionMarket,
+                NETWORK_CONFIG.chainId
+              );
+              if (img) {
+                if (img.image_url) {
+                  imageMap[pred.id] = img.image_url as string;
+                }
+                if (img.tags && Array.isArray(img.tags) && img.tags.length > 0) {
+                  tagMap[pred.id] = img.tags as string[];
+                }
+              }
+            } catch (err) {
+              console.error(`Error loading image for prediction ${pred.id}:`, err);
+            }
+
+            // Cargar opciones
+            try {
+              const options = await predictionMarketService.getPredictionOptions(pred.id);
+              optionsMap[pred.id] = options;
+            } catch (err) {
+              console.error(`Error loading options for prediction ${pred.id}:`, err);
+            }
+
+            // Cargar símbolo del token del creador
+            try {
+              const predictionData = await predictionMarketService.getPrediction(pred.id);
+              if (predictionData && predictionData.creatorToken) {
+                const tokenInfo = await creatorTokenService.getTokenInfo(predictionData.creatorToken);
+                tokenSymbolMap[pred.id] = tokenInfo.symbol;
+              } else {
+                tokenSymbolMap[pred.id] = 'uVotes'; // Fallback
+              }
+            } catch (err) {
+              console.error(`Error loading token symbol for prediction ${pred.id}:`, err);
+              tokenSymbolMap[pred.id] = 'uVotes'; // Fallback
+            }
+          })
+        );
+
+        setPredictionImages(imageMap);
+        setPredictionTags(tagMap);
+        setPredictionOptions(optionsMap);
+        setPredictionTokenSymbols(tokenSymbolMap);
+      } catch (err) {
+        console.error('Error loading prediction metadata:', err);
     } finally {
-      setClosingPredictionId(null);
-    }
+        setLoadingMetadata(false);
+      }
+    };
+
+    loadPredictionMetadata();
+  }, [predictions]);
+
+  // Formatear fecha
+  const formatDate = (timestamp: number) => {
+    const date = new Date(timestamp * 1000);
+    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic'];
+    return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+  };
+
+  // Formatear fecha de finalización
+  const formatEndDate = (timestamp: number) => {
+    if (timestamp === 0 || timestamp >= 2**256 - 1) return '∞';
+    const date = new Date(timestamp * 1000);
+    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic'];
+    return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+  };
+
+  // Formatear número con puntos
+  const formatNumber = (num: number) => {
+    return num.toLocaleString('es-ES');
   };
 
   // Filtrar predicciones
@@ -67,6 +184,7 @@ export function MyUVotesPage({ onViewPrediction }: MyUVotesPageProps) {
     const totalParticipants = predictions.reduce((sum, pred) => sum + pred.participantCount, 0);
     const activePredictions = predictions.filter(p => p.status === 0).length;
     const closedPredictions = predictions.filter(p => p.status === 1).length;
+    const cooldownPredictions = predictions.filter(p => p.status === 2).length;
     const finishedPredictions = predictions.filter(p => p.status === 4).length;
     
     // Los creadores no ganan por predicciones, solo por venta de tokens
@@ -76,12 +194,22 @@ export function MyUVotesPage({ onViewPrediction }: MyUVotesPageProps) {
       total: predictions.length,
       active: activePredictions,
       closed: closedPredictions,
+      cooldown: cooldownPredictions,
       finished: finishedPredictions,
       totalPool: totalPool.toFixed(2),
       totalParticipants,
       estimatedEarnings: estimatedEarnings.toFixed(2),
     };
   }, [predictions]);
+
+  // Generar filtros dinámicamente con las estadísticas reales
+  const statusFilters = useMemo(() => [
+    { id: 'all', label: 'Todas' },
+    { id: 'active', label: `Activas (${stats.active})` },
+    { id: 'closed', label: `Cerradas (${stats.closed})` },
+    { id: 'cooldown', label: `En Cooldown (${stats.cooldown})` },
+    { id: 'finished', label: `Finalizadas (${stats.finished})` },
+  ], [stats]);
 
   if (!isConnected) {
     return (
@@ -128,7 +256,7 @@ export function MyUVotesPage({ onViewPrediction }: MyUVotesPageProps) {
             <p className="text-slate-400">Gestiona y monitorea tus predicciones</p>
           </div>
           <button
-            onClick={() => {/* Navegar a crear predicción */}}
+            onClick={() => onCreatePrediction?.()}
             className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
@@ -223,7 +351,7 @@ export function MyUVotesPage({ onViewPrediction }: MyUVotesPageProps) {
           </p>
           {predictions.length === 0 && (
             <button
-              onClick={() => {/* Navegar a crear predicción */}}
+              onClick={() => onCreatePrediction?.()}
               className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
             >
               <Plus className="w-5 h-5" />
@@ -231,102 +359,164 @@ export function MyUVotesPage({ onViewPrediction }: MyUVotesPageProps) {
             </button>
           )}
         </div>
+      ) : loadingMetadata ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mb-4" />
+          <p className="text-slate-400">Cargando información de predicciones...</p>
+        </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {filteredPredictions.map((pred) => {
             const statusColor = STATUS_COLORS[pred.status];
-            const StatusIcon = STATUS_ICONS[pred.status];
             const isActive = pred.status === 0;
-            const isClosed = pred.status === 1;
-            const now = Math.floor(Date.now() / 1000);
-            const timeLeft = pred.closesAt - now;
-            const hoursLeft = Math.max(0, Math.floor(timeLeft / 3600));
+            const imageUrl = predictionImages[pred.id] || `https://api.dicebear.com/7.x/shapes/svg?seed=${pred.id}`;
+            const tags = predictionTags[pred.id] || [];
+            const primaryTag = tags[0] || 'other';
+            const options = predictionOptions[pred.id] || [];
+            const totalPool = parseFloat(pred.totalPool);
+            const tokenSymbol = predictionTokenSymbols[pred.id] || 'uVotes';
             
             return (
               <div
                 key={pred.id}
                 onClick={() => onViewPrediction(pred.id)}
-                className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-5 hover:bg-slate-900/70 hover:border-slate-700/50 transition-all cursor-pointer"
+                className="bg-slate-900/50 border border-slate-800/50 rounded-xl overflow-hidden hover:bg-slate-900/70 hover:border-slate-700/50 transition-all cursor-pointer flex"
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-slate-100 mb-2">
+                {/* Imagen de la predicción - Izquierda */}
+                <div className="relative w-80 h-64 bg-slate-800/50 flex-shrink-0">
+                  <img
+                    src={imageUrl}
+                    alt={pred.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target;
+                      if (target && 'src' in target) {
+                        (target as { src: string }).src = `https://api.dicebear.com/7.x/shapes/svg?seed=${pred.id}`;
+                      }
+                    }}
+                  />
+                  
+                </div>
+
+                {/* Contenido - Derecha */}
+                <div className="flex-1 flex flex-col justify-between p-6 min-w-0">
+                  {/* Sección superior */}
+                  <div className="space-y-4">
+                    {/* Título y Estado */}
+                    <div className="flex items-start justify-between gap-4">
+                      <h3 className="text-xl font-bold text-slate-100 line-clamp-2 leading-tight flex-1">
                       {pred.title}
                     </h3>
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <span className={`px-2 py-1 rounded-lg text-xs bg-${statusColor}-500/10 border border-${statusColor}-500/30 text-${statusColor}-400 flex items-center gap-1`}>
-                        <StatusIcon className="w-3 h-3" />
+                      {/* Estado en esquina superior derecha */}
+                      <div className="flex-shrink-0">
+                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+                          isActive
+                            ? 'bg-blue-500/90 backdrop-blur-sm text-white'
+                            : 'bg-slate-900/90 backdrop-blur-sm text-slate-300 border border-slate-700/50'
+                        }`}>
+                          <Clock className="w-3.5 h-3.5" />
                         {STATUS_NAMES[pred.status]}
+                    </div>
+                  </div>
+                </div>
+
+                    {/* Metadata: Categoría y Fecha */}
+                    <div className="flex items-center gap-3 text-sm">
+                      <span className="px-3 py-1 bg-slate-800/50 border border-slate-700/50 rounded-lg text-slate-300">
+                        {categoryNames[primaryTag] || primaryTag}
                       </span>
-                      {isActive && hoursLeft > 0 && (
-                        <span className="text-xs text-slate-400">
-                          <Clock className="w-3 h-3 inline mr-1" />
-                          {hoursLeft}h restantes
-                        </span>
-                      )}
-                      {isClosed && (
-                        <span className="px-2 py-1 rounded-lg text-xs bg-yellow-500/10 border border-yellow-500/30 text-yellow-400">
-                          ⚠️ Requiere resolución
-                        </span>
-                      )}
-                      {pred.reportCount > 0 && (
-                        <span className="px-2 py-1 rounded-lg text-xs bg-red-500/10 border border-red-500/30 text-red-400">
-                          🚨 {pred.reportCount} reportes
-                        </span>
-                      )}
+                      <span className="text-slate-500">
+                        {formatDate(pred.createdAt)}
+                      </span>
                     </div>
-                  </div>
-                </div>
 
-                {/* Stats Row */}
-                <div className="grid grid-cols-4 gap-4 pt-4 border-t border-slate-800">
-                  <div>
-                    <div className="text-slate-500 text-xs mb-1">Participantes</div>
-                    <div className="text-slate-100 font-medium flex items-center gap-1">
-                      <Users className="w-4 h-4 text-slate-400" />
-                      {pred.participantCount}
+                    {/* Opciones de voto con barras de progreso */}
+                    {options.length > 0 && (
+                      <div className="space-y-3">
+                        {options.map((option, index) => {
+                          const optionAmount = parseFloat(option.totalAmount);
+                          const percentage = totalPool > 0 ? (optionAmount / totalPool) * 100 : 0;
+                          const color = getColorForOption(option.description, index);
+                          
+                          return (
+                            <div key={index} className="space-y-1.5">
+                              {/* Texto de la opción con porcentaje */}
+                              <div className="flex items-center justify-between">
+                                <span className={`${color.text} text-sm font-medium`}>
+                                  {option.description}
+                                </span>
+                                <span className="text-slate-400 text-sm">
+                                  {percentage.toFixed(1)}% ({formatNumber(option.totalBettors)} votos)
+                                </span>
+                              </div>
+                              
+                              {/* Barra de progreso */}
+                              <div className="relative w-full h-2 bg-slate-800/50 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full ${color.bgBar} transition-all rounded-full`}
+                                  style={{ width: `${percentage}%` }}
+                                />
                     </div>
                   </div>
-                  <div>
-                    <div className="text-slate-500 text-xs mb-1">Pool Total</div>
-                    <div className="text-emerald-400 font-medium flex items-center gap-1">
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Sección inferior: Métricas y acciones */}
+                  <div className="flex items-end justify-between pt-4 border-t border-slate-800/50">
+                    {/* Métricas de engagement - Izquierda */}
+                    <div className="flex items-center gap-4 text-sm text-slate-400">
+                      <div className="flex items-center gap-1.5">
+                        <Users className="w-4 h-4" />
+                        <span>{formatNumber(pred.participantCount)} participantes</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <TrendingUp className="w-4 h-4" />
+                        <span>{formatNumber(Math.floor(totalPool))} {tokenSymbol} apostados</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 text-emerald-400">
                       <TrendingUp className="w-4 h-4" />
-                      {parseFloat(pred.totalPool).toFixed(2)}
+                        <span>+0 {tokenSymbol} ganados</span>
                     </div>
                   </div>
-                  <div>
-                    <div className="text-slate-500 text-xs mb-1">Opciones</div>
-                    <div className="text-slate-100 font-medium">{pred.optionsCount}</div>
+
+                    {/* Fecha de fin y acciones - Derecha */}
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <div className="text-slate-400 text-xs mb-0.5">Finaliza</div>
+                        <div className="text-slate-300 text-sm font-medium">
+                          {formatEndDate(pred.closesAt)}
                   </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between gap-2">
-                  {isActive && (
+                      {/* Iconos de acción - No implementados todavía 
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // TODO: Implementar compartir
+                          }}
+                          className="p-2 hover:bg-slate-800/50 rounded-lg transition-colors text-slate-400 hover:text-slate-200"
+                          title="Compartir"
+                        >
+                          <Share2 className="w-4 h-4" />
+                        </button>
                     <button
-                      onClick={(e) => handleClosePrediction(e, pred.id)}
-                      disabled={closingPredictionId === pred.id}
-                      className="px-4 py-2 bg-orange-600 hover:bg-orange-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-                    >
-                      {closingPredictionId === pred.id ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Cerrando...
-                        </>
-                      ) : (
-                        <>
-                          <X className="w-4 h-4" />
-                          Cerrar
-                        </>
-                      )}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onViewPrediction(pred.id);
+                          }}
+                          className="p-2 hover:bg-slate-800/50 rounded-lg transition-colors text-slate-400 hover:text-slate-200"
+                          title="Editar"
+                        >
+                          <Edit className="w-4 h-4" />
                     </button>
-                  )}
-                  {isClosed && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="text-yellow-400 font-medium">Haz clic para resolver esta predicción</span>
-                      <CheckCircle2 className="w-5 h-5 text-yellow-400" />
+                      </div> */}
                     </div>
-                  )}
+                    </div>
                 </div>
               </div>
             );

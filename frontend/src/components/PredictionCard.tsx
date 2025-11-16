@@ -25,6 +25,7 @@ interface Prediction {
   options: PredictionOption[];
   endDate: string;
   thumbnail: string;
+  creatorTokenSymbol?: string; // Símbolo del token del creador
 }
 
 interface PredictionCardProps {
@@ -54,9 +55,15 @@ const getColorForOption = (label: string, index: number) => {
 };
 
 export function PredictionCard({ prediction, onClick }: PredictionCardProps) {
-  const daysLeft = Math.ceil(
-    (new Date(prediction.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-  );
+  // Detectar si la predicción no tiene tiempo límite
+  const hasNoTimeLimit = prediction.endDate === 'Indefinida' || isNaN(new Date(prediction.endDate).getTime());
+  
+  // Calcular días restantes solo si tiene tiempo límite válido
+  const daysLeft = hasNoTimeLimit 
+    ? null 
+    : Math.ceil(
+        (new Date(prediction.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+      );
 
   const isBinaryChoice = prediction.options.length === 2;
 
@@ -66,7 +73,7 @@ export function PredictionCard({ prediction, onClick }: PredictionCardProps) {
       onClick={onClick}
     >
       {/* Thumbnail */}
-      <div className="relative h-40 overflow-hidden">
+      <div className="relative h-32 overflow-hidden">
         <img 
           src={prediction.thumbnail} 
           alt={prediction.question}
@@ -91,26 +98,26 @@ export function PredictionCard({ prediction, onClick }: PredictionCardProps) {
         {/* Time Badge */}
         <Badge className="absolute top-3 right-3 bg-black/40 backdrop-blur-sm border-white/10 text-white text-xs px-2.5 py-1">
           <Clock className="w-3 h-3 mr-1" />
-          {daysLeft}d
+          {hasNoTimeLimit ? '∞' : `${daysLeft}d`}
         </Badge>
       </div>
 
       {/* Content */}
-      <div className="p-4">
-        <h3 className="text-white mb-4 line-clamp-2 leading-snug">
+      <div className="p-3">
+        <h3 className="text-white mb-3 line-clamp-2 leading-snug text-sm font-medium">
           {prediction.question}
         </h3>
 
         {/* Pool Info */}
-        <div className="flex items-center gap-2 mb-4 text-emerald-400">
-          <TrendingUp className="w-4 h-4" />
+        <div className="flex items-center gap-2 mb-3 text-emerald-400">
+          <TrendingUp className="w-3.5 h-3.5" />
           <span className="text-xs">
-            {prediction.totalPool.toLocaleString()} uVotes
+            {prediction.totalPool.toLocaleString()} {prediction.creatorTokenSymbol || 'uVotes'}
           </span>
         </div>
 
         {/* Vote Buttons */}
-        <div className={`grid gap-2.5 mb-4 ${isBinaryChoice ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        <div className={`grid gap-2 mb-3 ${isBinaryChoice ? 'grid-cols-2' : 'grid-cols-1'}`}>
           {prediction.options.map((option, index) => {
             const percentage = (option.votes / prediction.totalPool) * 100;
             const color = getColorForOption(option.label, index);
@@ -118,11 +125,11 @@ export function PredictionCard({ prediction, onClick }: PredictionCardProps) {
             return (
               <div 
                 key={option.id}
-                className={`${color.border} ${color.text} bg-slate-950/50 border text-sm h-10 relative overflow-hidden transition-all rounded-lg flex items-center px-3`}
+                className={`${color.border} ${color.text} bg-slate-950/50 border text-xs h-8 relative overflow-hidden transition-all rounded-lg flex items-center px-2.5`}
               >
                 <span className="relative z-10 flex items-center justify-between w-full">
-                  <span>{option.label}</span>
-                  <span className="text-xs opacity-80">{percentage.toFixed(1)}%</span>
+                  <span className="truncate">{option.label}</span>
+                  <span className="text-xs opacity-80 ml-2 flex-shrink-0">{percentage.toFixed(1)}%</span>
                 </span>
                 <div 
                   className={`absolute left-0 top-0 h-full ${color.bgBar} transition-all`}

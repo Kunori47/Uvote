@@ -40,8 +40,25 @@ export const factoryService = {
 
   // Obtener token de un creador
   getCreatorToken: async (creatorAddress: string) => {
+    try {
+      const contract = factoryService.getContract();
+      const tokenAddress = await contract.getCreatorToken(creatorAddress);
+      // Verificar si es una dirección válida (no 0x0)
+      if (!tokenAddress || tokenAddress === '0x0000000000000000000000000000000000000000') {
+        return null;
+      }
+      return tokenAddress;
+    } catch (error: any) {
+      // Si el contrato no está desplegado o el nodo no está corriendo, retornar null
+      console.warn('⚠️  Error obteniendo token del creador:', error.message);
+      return null;
+    }
+  },
+
+  // Obtener el creator de un token
+  getTokenCreator: async (tokenAddress: string) => {
     const contract = factoryService.getContract();
-    return await contract.getCreatorToken(creatorAddress);
+    return await contract.getTokenCreator(tokenAddress);
   },
 
   // Verificar si un creador está activo
