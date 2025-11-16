@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Users,
@@ -21,6 +21,12 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import React from "react";
+import { useWallet } from "../hooks/useWallet";
+import { apiService } from "../lib/apiService";
+import { usePredictions, PredictionData } from "../hooks/usePredictions";
+import { tokenExchangeService } from "../lib/contractService";
+import { CONTRACT_ADDRESSES, NETWORK_CONFIG } from "../lib/contracts";
+import { useMyCreatorToken } from "../hooks/useMyCreatorToken";
 
 interface UserProfile {
   id: string;
@@ -148,26 +154,260 @@ interface MyProfilePageProps {
 }
 
 export function MyProfilePage({ onBack }: MyProfilePageProps) {
+  const { address, isConnected } = useWallet();
+  const { predictions: allPredictions } = usePredictions();
+  const {
+    token: myCreatorToken,
+    hasToken: hasCreatorToken,
+  } = useMyCreatorToken(address || null);
   const [activeTab, setActiveTab] =
     useState<TabType>("predictions");
   const [isEditingProfile, setIsEditingProfile] =
     useState(false);
   const [isEditingCoin, setIsEditingCoin] = useState(false);
-  const [profile, setProfile] = useState(mockUserProfile);
+  const [profile, setProfile] = useState<UserProfile>(mockUserProfile);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
-    name: profile.name,
-    username: profile.username,
-    bio: profile.bio,
-    category: profile.category,
-    email: profile.email,
-    twitter: profile.socialLinks?.twitter || "",
-    youtube: profile.socialLinks?.youtube || "",
-    twitch: profile.socialLinks?.twitch || "",
+    name: mockUserProfile.name,
+    username: mockUserProfile.username,
+    bio: mockUserProfile.bio,
+    category: mockUserProfile.category,
+    email: mockUserProfile.email,
+    twitter: mockUserProfile.socialLinks?.twitter || "",
+    youtube: mockUserProfile.socialLinks?.youtube || "",
+    twitch: mockUserProfile.socialLinks?.twitch || "",
   });
   const [coinForm, setCoinForm] = useState({
     coinSymbol: profile.coinSymbol || "",
     coinValue: profile.coinValue?.toString() || "",
   });
+  const [predictionThumbnails, setPredictionThumbnails] = useState<
+    Record<string, string>
+  >({});
+
+  // Predicciones creadas por este usuario (desde blockchain)
+  const myPredictionsRaw: PredictionData[] = useMemo(() => {
+    if (!address) return [];
+    return allPredictions.filter(
+      (p) => p.creator.toLowerCase() === address.toLowerCase()
+    );
+  }, [allPredictions, address]);
+
+  // Cargar imágenes de predicciones del creador desde Supabase
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadImages = async () => {
+      if (!myPredictionsRaw || myPredictionsRaw.length === 0) {
+        setPredictionThumbnails({});
+        return;
+      }
+
+      try {
+        const entries: Array<[string, string]> = [];
+
+        await Promise.all(
+          myPredictionsRaw.map(async (pred) => {
+            const img: any = await apiService.getPredictionImage(
+              pred.id,
+              CONTRACT_ADDRESSES.PredictionMarket,
+              NETWORK_CONFIG.chainId
+            );
+            if (img && img.image_url) {
+              entries.push([pred.id, img.image_url as string]);
+            }
+          })
+        );
+
+        if (!cancelled) {
+          const map: Record<string, string> = {};
+          for (const [id, url] of entries) {
+            map[id] = url;
+          }
+          setPredictionThumbnails(map);
+        }
+      } catch (e) {
+        console.error("Error loading creator prediction thumbnails:", e);
+      }
+    };
+
+    loadImages();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [myPredictionsRaw]);
+
+  const myPredictionsForCards: Prediction[] = useMemo(() => {
+    return myPredictionsRaw.map((pred) => {
+      const MAX_SAFE_TIMESTAMP = 10 ** 15;
+      let endDate: string;
+      if (pred.closesAt > MAX_SAFE_TIMESTAMP) {
+        endDate = "Indefinida";
+      } else {
+        const date = new Date(pred.closesAt * 1000);
+        endDate = isNaN(date.getTime())
+          ? "Indefinida"
+          : date.toISOString().split("T")[0];
+      }
+
+      const options = pred.options.map((opt, index) => ({
+        id: index.toString(),
+        label: opt.description,
+        votes: parseFloat(opt.totalAmount),
+      }));
+
+      let predCategory = "other";
+      const title = pred.title.toLowerCase();
+      if (title.includes("deporte") || title.includes("fútbol") || title.includes("madrid")) {
+        predCategory = "sports";
+      } else if (title.includes("juego") || title.includes("gaming") || title.includes("gta")) {
+        predCategory = "gaming";
+      } else if (title.includes("crypto") || title.includes("bitcoin") || title.includes("eth")) {
+        predCategory = "crypto";
+      } else if (title.includes("tech") || title.includes("tecnología") || title.includes("iphone")) {
+        predCategory = "tech";
+      }
+
+      let status: Prediction["status"] = "active";
+      if (pred.status === 4) {
+        status = "ended";
+      } else if (pred.status === 6) {
+        status = "cancelled";
+      }
+
+      return {
+        id: pred.id,
+        creator: {
+          name: profile.name,
+          avatar: profile.avatar,
+          verified: true,
+        },
+        question: pred.title,
+        category: predCategory,
+        totalPool: parseFloat(pred.totalPool),
+        options,
+        endDate,
+        thumbnail:
+          predictionThumbnails[pred.id] ||
+          `https://api.dicebear.com/7.x/shapes/svg?seed=${pred.id}`,
+        status,
+      };
+    });
+  }, [myPredictionsRaw, profile.name, profile.avatar, predictionThumbnails]);
+
+  const totalUserPredictions = myPredictionsRaw.length;
+  const activeUserPredictions = myPredictionsRaw.filter(
+    (p) => p.status === 0 || p.status === 1 || p.status === 2 || p.status === 3
+  ).length;
+
+  // Cuando llega el perfil desde backend, sincronizar el formulario de edición
+  useEffect(() => {
+    setEditForm({
+      name: profile.name,
+      username: profile.username,
+      bio: profile.bio,
+      category: profile.category,
+      email: profile.email,
+      twitter: profile.socialLinks?.twitter || "",
+      youtube: profile.socialLinks?.youtube || "",
+      twitch: profile.socialLinks?.twitch || "",
+    });
+  }, [profile]);
+
+  // Cargar perfil real desde Supabase (backend) usando la wallet
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!address || !isConnected) {
+        setProfile(mockUserProfile);
+        return;
+      }
+
+      try {
+        setLoadingProfile(true);
+        setProfileError(null);
+
+        const user: any = await apiService.getUser(address);
+        if (!user) {
+          // Si no hay usuario en backend, mostramos algo básico basado en la wallet
+          const shortAddr = `${address.slice(0, 6)}...${address.slice(-4)}`;
+          setProfile((prev) => ({
+            ...prev,
+            name: shortAddr,
+            username: user?.username ? `@${user.username}` : shortAddr,
+            bio: "",
+            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${address}`,
+          }));
+          return;
+        }
+
+        const displayName =
+          user.display_name ||
+          user.username ||
+          `${address.slice(0, 6)}...${address.slice(-4)}`;
+        const usernameFormatted = user.username
+          ? `@${user.username}`
+          : `${address.slice(0, 6)}...${address.slice(-4)}`;
+
+        // Si Supabase no marcó is_creator, igualmente calculamos seguidores desde subscriptions
+        const followersCount = await apiService.getCreatorFollowersCount(address);
+
+        setProfile((prev) => ({
+          ...prev,
+          name: displayName,
+          username: usernameFormatted,
+          bio: user.bio || "",
+          avatar:
+            user.profile_image_url ||
+            `https://api.dicebear.com/7.x/avataaars/svg?seed=${address}`,
+          followers: followersCount,
+          joinedDate: user.created_at || prev.joinedDate,
+        }));
+      } catch (e: any) {
+        console.error("Error loading profile from backend:", e);
+        setProfileError(e?.message || "Error al cargar tu perfil");
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+
+    loadProfile();
+  }, [address, isConnected]);
+
+  // Cargar información de la moneda del creador (si existe) reutilizando el mismo hook que "Mi Moneda"
+  useEffect(() => {
+    const loadCreatorCoin = async () => {
+      // Si no hay wallet conectada o el hook indica que no hay token, limpiamos el estado
+      if (!address || !isConnected || !hasCreatorToken || !myCreatorToken) {
+        setProfile((prev) => ({
+          ...prev,
+          hasCreatorCoin: false,
+          coinSymbol: undefined,
+          coinValue: undefined,
+          totalEarnings: undefined,
+        }));
+        return;
+      }
+
+      try {
+        // Reutilizamos los datos que ya calcula useMyCreatorToken
+        const earningsEth = await tokenExchangeService.getCreatorEarnings(address);
+
+        setProfile((prev) => ({
+          ...prev,
+          hasCreatorCoin: true,
+          coinSymbol: myCreatorToken.symbol,
+          coinValue: parseFloat(myCreatorToken.price),
+          totalEarnings: parseFloat(earningsEth),
+        }));
+      } catch (e) {
+        console.error("Error loading creator coin info:", e);
+      }
+    };
+
+    loadCreatorCoin();
+  }, [address, isConnected, hasCreatorToken, myCreatorToken]);
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -282,7 +522,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                     {profile.category}
                   </span>
                 </div>
-                <div className="flex items-center gap-4 text-slate-400 mb-3">
+            <div className="flex items-center gap-4 text-slate-400 mb-3">
                   <div className="flex items-center gap-1.5">
                     <Users className="w-4 h-4" />
                     <span>
@@ -292,7 +532,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                   </div>
                   <span className="text-slate-700">•</span>
                   <span>
-                    {profile.totalPredictions} predicciones
+                    {totalUserPredictions} predicciones
                   </span>
                   <span className="text-slate-700">•</span>
                   <span>
@@ -313,6 +553,18 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
           </div>
         </div>
 
+        {/* Mensaje de estado de perfil */}
+        {loadingProfile && (
+          <div className="mb-4 text-sm text-slate-400">
+            Cargando tu perfil desde Supabase...
+          </div>
+        )}
+        {profileError && (
+          <div className="mb-4 text-sm text-red-400">
+            {profileError}
+          </div>
+        )}
+
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4">
@@ -321,7 +573,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
               <span className="text-sm">Activas</span>
             </div>
             <div className="text-slate-100 text-2xl">
-              {profile.activePredictions}
+              {activeUserPredictions}
             </div>
           </div>
 
@@ -403,12 +655,12 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
         {activeTab === "predictions" && (
           <div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {mockPredictions.length === 0 ? (
+              {myPredictionsForCards.length === 0 ? (
                 <div className="col-span-full text-center py-12 text-slate-500">
                   No tienes predicciones todavía
                 </div>
               ) : (
-                mockPredictions.map((prediction) => (
+                myPredictionsForCards.map((prediction) => (
                   <PredictionCard
                     key={prediction.id}
                     prediction={prediction}
@@ -563,7 +815,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                       Predicciones Totales
                     </div>
                     <div className="text-slate-200 text-xl">
-                      {profile.totalPredictions}
+                      {totalUserPredictions}
                     </div>
                   </div>
                   <div>
@@ -571,7 +823,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                       Predicciones Activas
                     </div>
                     <div className="text-slate-200 text-xl">
-                      {profile.activePredictions}
+                      {activeUserPredictions}
                     </div>
                   </div>
                 </div>

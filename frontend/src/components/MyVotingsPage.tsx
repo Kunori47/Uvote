@@ -1,122 +1,17 @@
-import { useState } from 'react';
-import { Filter, Calendar, CheckCircle2, XCircle, Clock, Trophy } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Filter, Calendar, CheckCircle2, XCircle, Clock, Trophy, Loader2, AlertCircle, TrendingUp, Wallet } from 'lucide-react';
 import React from 'react';
+import { useWallet } from '../hooks/useWallet';
+import { useMyBets } from '../hooks/useMyBets';
 
-interface VotingHistory {
-  id: string;
-  title: string;
-  thumbnail: string;
-  date: string;
-  status: 'active' | 'finished';
-  result: 'won' | 'lost' | 'pending';
-  option: string;
-  optionColor: string;
-  amount: number;
-  potentialReturn: number;
-  actualReturn?: number;
-  participants: number;
-  endDate?: string;
-}
-
-const mockVotings: VotingHistory[] = [
-  {
-    id: '1',
-    title: '¿Argentina ganará el próximo Mundial 2026?',
-    thumbnail: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=400&h=225&fit=crop',
-    date: '2024-11-05',
-    status: 'finished',
-    result: 'won',
-    option: 'Sí',
-    optionColor: '#10b981',
-    amount: 500,
-    potentialReturn: 850,
-    actualReturn: 850,
-    participants: 12450,
-  },
-  {
-    id: '2',
-    title: '¿El precio de Bitcoin superará los $100,000 en 2025?',
-    thumbnail: 'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=400&h=225&fit=crop',
-    date: '2024-11-03',
-    status: 'active',
-    result: 'pending',
-    option: 'Sí',
-    optionColor: '#10b981',
-    amount: 1000,
-    potentialReturn: 1800,
-    participants: 8932,
-    endDate: '2025-12-31',
-  },
-  {
-    id: '3',
-    title: '¿Habrá elecciones anticipadas en España en 2025?',
-    thumbnail: 'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=400&h=225&fit=crop',
-    date: '2024-10-28',
-    status: 'finished',
-    result: 'lost',
-    option: 'No',
-    optionColor: '#ef4444',
-    amount: 300,
-    potentialReturn: 540,
-    actualReturn: 0,
-    participants: 5621,
-  },
-  {
-    id: '4',
-    title: '¿Quién ganará las elecciones de EE.UU. en 2024?',
-    thumbnail: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=400&h=225&fit=crop',
-    date: '2024-10-15',
-    status: 'finished',
-    result: 'won',
-    option: 'Opción A',
-    optionColor: '#3b82f6',
-    amount: 750,
-    potentialReturn: 1200,
-    actualReturn: 1200,
-    participants: 25684,
-  },
-  {
-    id: '5',
-    title: '¿Tesla lanzará un modelo más económico en 2025?',
-    thumbnail: 'https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=400&h=225&fit=crop',
-    date: '2024-10-10',
-    status: 'active',
-    result: 'pending',
-    option: 'Opción B',
-    optionColor: '#eab308',
-    amount: 600,
-    potentialReturn: 1020,
-    participants: 4521,
-    endDate: '2025-12-31',
-  },
-  {
-    id: '6',
-    title: '¿La inflación en Argentina bajará del 50% en 2025?',
-    thumbnail: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=400&h=225&fit=crop',
-    date: '2024-09-22',
-    status: 'finished',
-    result: 'lost',
-    option: 'Sí',
-    optionColor: '#10b981',
-    amount: 450,
-    potentialReturn: 720,
-    actualReturn: 0,
-    participants: 9856,
-  },
-];
-
-const timeFilters = [
-  { id: 'all', label: 'Todo el tiempo' },
-  { id: 'today', label: 'Hoy' },
-  { id: 'week', label: 'Esta semana' },
-  { id: 'month', label: 'Este mes' },
-  { id: 'year', label: 'Este año' },
-];
+const STATUS_NAMES = ['Activa', 'Cerrada', 'Cooldown', 'En Revisión', 'Confirmada', 'Disputada', 'Cancelada'];
+const STATUS_COLORS = ['blue', 'slate', 'yellow', 'orange', 'emerald', 'red', 'gray'];
 
 const statusFilters = [
   { id: 'all', label: 'Todas' },
-  { id: 'active', label: 'Activas' },
-  { id: 'finished', label: 'Finalizadas' },
+  { id: 'active', label: 'Activas (0-1)' },
+  { id: 'finished', label: 'Finalizadas (4)' },
+  { id: 'cooldown', label: 'En Cooldown (2)' },
 ];
 
 const resultFilters = [
@@ -131,61 +26,118 @@ interface MyVotingsPageProps {
 }
 
 export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
-  const [timeFilter, setTimeFilter] = useState('all');
+  const { address, isConnected } = useWallet();
+  const { bets, loading, error } = useMyBets(address);
+  
   const [statusFilter, setStatusFilter] = useState('all');
   const [resultFilter, setResultFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Filter logic
-  const filteredVotings = mockVotings.filter((voting) => {
-    if (statusFilter !== 'all' && voting.status !== statusFilter) return false;
-    if (resultFilter !== 'all' && voting.result !== resultFilter) return false;
-    // Time filter logic would go here
-    return true;
-  });
+  // Filtrar apuestas
+  const filteredBets = useMemo(() => {
+    return bets.filter((bet) => {
+      // Filtro de estado
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'active' && bet.predictionStatus > 1) return false;
+        if (statusFilter === 'finished' && bet.predictionStatus !== 4) return false;
+        if (statusFilter === 'cooldown' && bet.predictionStatus !== 2) return false;
+      }
 
-  // Statistics
-  const stats = {
-    total: mockVotings.length,
-    active: mockVotings.filter(v => v.status === 'active').length,
-    won: mockVotings.filter(v => v.result === 'won').length,
-    lost: mockVotings.filter(v => v.result === 'lost').length,
-    totalInvested: mockVotings.reduce((sum, v) => sum + v.amount, 0),
-    totalReturns: mockVotings.reduce((sum, v) => sum + (v.actualReturn || 0), 0),
+      // Filtro de resultado
+      if (resultFilter !== 'all') {
+        if (resultFilter === 'won' && !bet.canClaim) return false;
+        if (resultFilter === 'lost' && (bet.predictionStatus !== 4 || bet.canClaim)) return false;
+        if (resultFilter === 'pending' && bet.predictionStatus >= 4) return false;
+      }
+
+      return true;
+    });
+  }, [bets, statusFilter, resultFilter]);
+
+  // Estadísticas
+  const stats = useMemo(() => {
+    const totalInvested = bets.reduce((sum, bet) => sum + parseFloat(bet.totalBetAmount), 0);
+    const activeBets = bets.filter(b => b.predictionStatus <= 1).length;
+    const wonBets = bets.filter(b => b.canClaim).length;
+    const lostBets = bets.filter(b => b.predictionStatus === 4 && !b.canClaim).length;
+    
+    return {
+      total: bets.length,
+      active: activeBets,
+      won: wonBets,
+      lost: lostBets,
+      totalInvested: totalInvested.toFixed(2),
+    };
+  }, [bets]);
+
+  // Determinar resultado de una apuesta
+  const getBetResult = (bet: typeof bets[0]): 'won' | 'lost' | 'pending' => {
+    if (bet.predictionStatus < 4) return 'pending';
+    if (bet.canClaim) return 'won';
+    return 'lost';
   };
+
+  if (!isConnected) {
+    return (
+      <div className="p-6">
+        <div className="flex flex-col items-center justify-center py-20">
+          <Wallet className="w-16 h-16 text-slate-400 mb-4" />
+          <h2 className="text-2xl font-bold text-slate-100 mb-2">Wallet no conectada</h2>
+          <p className="text-slate-400">Conecta tu wallet para ver tus apuestas</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mb-4" />
+          <p className="text-slate-400">Cargando tus apuestas...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="flex flex-col items-center justify-center py-20">
+          <AlertCircle className="w-16 h-16 text-red-400 mb-4" />
+          <h2 className="text-2xl font-bold text-slate-100 mb-2">Error</h2>
+          <p className="text-red-400">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
       {/* Header with stats */}
       <div className="mb-8">
-        <h1 className="text-slate-100 mb-6">Mis Votaciones</h1>
+        <h1 className="text-3xl font-bold text-slate-100 mb-6">Mis Votaciones</h1>
         
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4">
             <div className="text-slate-500 text-sm mb-1">Total</div>
-            <div className="text-slate-100">{stats.total}</div>
+            <div className="text-2xl font-bold text-slate-100">{stats.total}</div>
           </div>
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4">
             <div className="text-slate-500 text-sm mb-1">Activas</div>
-            <div className="text-blue-400">{stats.active}</div>
+            <div className="text-2xl font-bold text-blue-400">{stats.active}</div>
           </div>
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4">
             <div className="text-slate-500 text-sm mb-1">Ganadas</div>
-            <div className="text-emerald-400">{stats.won}</div>
+            <div className="text-2xl font-bold text-emerald-400">{stats.won}</div>
           </div>
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4">
             <div className="text-slate-500 text-sm mb-1">Perdidas</div>
-            <div className="text-red-400">{stats.lost}</div>
+            <div className="text-2xl font-bold text-red-400">{stats.lost}</div>
           </div>
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4">
-            <div className="text-slate-500 text-sm mb-1">Invertido</div>
-            <div className="text-slate-100">{stats.totalInvested}u</div>
-          </div>
-          <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4">
-            <div className="text-slate-500 text-sm mb-1">Retornos</div>
-            <div className={stats.totalReturns >= stats.totalInvested ? 'text-emerald-400' : 'text-red-400'}>
-              {stats.totalReturns}u
-            </div>
+            <div className="text-slate-500 text-sm mb-1">Total Apostado</div>
+            <div className="text-2xl font-bold text-slate-100">{stats.totalInvested}</div>
           </div>
         </div>
 
@@ -196,213 +148,162 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
             className="flex items-center gap-2 px-4 py-2 bg-slate-900/50 border border-slate-800/50 rounded-xl text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 transition-all"
           >
             <Filter className="w-4 h-4" />
-            <span>Filtros</span>
+            Filtros
           </button>
-
-          {(timeFilter !== 'all' || statusFilter !== 'all' || resultFilter !== 'all') && (
+          
+          {(statusFilter !== 'all' || resultFilter !== 'all') && (
             <button
               onClick={() => {
-                setTimeFilter('all');
                 setStatusFilter('all');
                 setResultFilter('all');
               }}
-              className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 transition-colors"
+              className="text-sm text-emerald-400 hover:text-emerald-300"
             >
               Limpiar filtros
             </button>
           )}
         </div>
 
+        {/* Filter Options */}
         {showFilters && (
-          <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4 mb-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Time Filter */}
-              <div>
-                <div className="flex items-center gap-2 text-slate-400 text-sm mb-3">
-                  <Calendar className="w-4 h-4" />
-                  <span>Tiempo</span>
-                </div>
-                <div className="space-y-2">
-                  {timeFilters.map((filter) => (
-                    <button
-                      key={filter.id}
-                      onClick={() => setTimeFilter(filter.id)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                        timeFilter === filter.id
-                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                          : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
-                      }`}
-                    >
-                      {filter.label}
-                    </button>
-                  ))}
-                </div>
+          <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4 mb-4 space-y-4">
+            <div>
+              <div className="text-slate-400 text-sm mb-2">Estado</div>
+              <div className="flex flex-wrap gap-2">
+                {statusFilters.map((filter) => (
+                  <button
+                    key={filter.id}
+                    onClick={() => setStatusFilter(filter.id)}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
+                      statusFilter === filter.id
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-slate-300'
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
               </div>
-
-              {/* Status Filter */}
-              <div>
-                <div className="flex items-center gap-2 text-slate-400 text-sm mb-3">
-                  <Clock className="w-4 h-4" />
-                  <span>Estado</span>
-                </div>
-                <div className="space-y-2">
-                  {statusFilters.map((filter) => (
-                    <button
-                      key={filter.id}
-                      onClick={() => setStatusFilter(filter.id)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                        statusFilter === filter.id
-                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                          : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
-                      }`}
-                    >
-                      {filter.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Result Filter */}
-              <div>
-                <div className="flex items-center gap-2 text-slate-400 text-sm mb-3">
-                  <Trophy className="w-4 h-4" />
-                  <span>Resultado</span>
-                </div>
-                <div className="space-y-2">
-                  {resultFilters.map((filter) => (
-                    <button
-                      key={filter.id}
-                      onClick={() => setResultFilter(filter.id)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                        resultFilter === filter.id
-                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                          : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
-                      }`}
-                    >
-                      {filter.label}
-                    </button>
-                  ))}
-                </div>
+            </div>
+            
+            <div>
+              <div className="text-slate-400 text-sm mb-2">Resultado</div>
+              <div className="flex flex-wrap gap-2">
+                {resultFilters.map((filter) => (
+                  <button
+                    key={filter.id}
+                    onClick={() => setResultFilter(filter.id)}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
+                      resultFilter === filter.id
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-slate-300'
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Voting History List */}
-      <div className="space-y-3">
-        {filteredVotings.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
-            No se encontraron votaciones con los filtros seleccionados
-          </div>
-        ) : (
-          filteredVotings.map((voting) => (
-            <div
-              key={voting.id}
-              className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4 hover:bg-slate-900/50 hover:border-slate-700/50 transition-all cursor-pointer"
-              onClick={() => onViewPrediction(voting.id)}
-            >
-              <div className="flex gap-4">
-                {/* Thumbnail */}
-                <div className="flex-shrink-0">
-                  <img
-                    src={voting.thumbnail}
-                    alt={voting.title}
-                    className="w-40 h-24 object-cover rounded-lg"
-                  />
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-4 mb-2">
-                    <h3 className="text-slate-200 line-clamp-2">{voting.title}</h3>
-                    
-                    {/* Status Badge */}
-                    <div className="flex-shrink-0">
-                      {voting.status === 'active' ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg text-sm">
-                          <Clock className="w-3.5 h-3.5" />
-                          Activa
+      {/* Bets List */}
+      {filteredBets.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Trophy className="w-16 h-16 text-slate-600 mb-4" />
+          <h3 className="text-xl font-bold text-slate-300 mb-2">No hay apuestas</h3>
+          <p className="text-slate-500">
+            {bets.length === 0 
+              ? 'Aún no has apostado en ninguna predicción'
+              : 'No hay apuestas que coincidan con los filtros'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredBets.map((bet) => {
+            const result = getBetResult(bet);
+            const statusColor = STATUS_COLORS[bet.predictionStatus];
+            
+            return (
+              <div
+                key={bet.predictionId}
+                onClick={() => onViewPrediction(bet.predictionId)}
+                className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-5 hover:bg-slate-900/70 hover:border-slate-700/50 transition-all cursor-pointer"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-slate-100 mb-2">
+                      {bet.predictionTitle}
+                    </h3>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className={`px-2 py-1 rounded-lg text-xs bg-${statusColor}-500/10 border border-${statusColor}-500/30 text-${statusColor}-400`}>
+                        {STATUS_NAMES[bet.predictionStatus]}
+                      </span>
+                      {result === 'won' && (
+                        <span className="px-2 py-1 rounded-lg text-xs bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center gap-1">
+                          <Trophy className="w-3 h-3" />
+                          Ganaste
                         </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-800/50 text-slate-400 border border-slate-700/50 rounded-lg text-sm">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          Finalizada
+                      )}
+                      {result === 'lost' && (
+                        <span className="px-2 py-1 rounded-lg text-xs bg-red-500/10 border border-red-500/30 text-red-400 flex items-center gap-1">
+                          <XCircle className="w-3 h-3" />
+                          Perdiste
+                        </span>
+                      )}
+                      {result === 'pending' && (
+                        <span className="px-2 py-1 rounded-lg text-xs bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          Pendiente
                         </span>
                       )}
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-6 text-sm mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-500">Votaste:</span>
-                      <span
-                        className="px-2 py-0.5 rounded"
-                        style={{ backgroundColor: `${voting.optionColor}20`, color: voting.optionColor, border: `1px solid ${voting.optionColor}40` }}
-                      >
-                        {voting.option}
-                      </span>
+                  
+                  <div className="text-right">
+                    <div className="text-sm text-slate-500 mb-1">Total apostado</div>
+                    <div className="text-xl font-bold text-emerald-400">
+                      {bet.totalBetAmount} {bet.creatorTokenSymbol}
                     </div>
-                    <div className="text-slate-500">{voting.date}</div>
-                    <div className="text-slate-500">{voting.participants.toLocaleString()} participantes</div>
-                  </div>
-
-                  <div className="flex items-center gap-8">
-                    <div>
-                      <div className="text-slate-500 text-sm">Apostado</div>
-                      <div className="text-slate-300">{voting.amount}u</div>
-                    </div>
-
-                    {voting.status === 'active' ? (
-                      <>
-                        <div>
-                          <div className="text-slate-500 text-sm">Retorno potencial</div>
-                          <div className="text-blue-400">{voting.potentialReturn}u</div>
-                        </div>
-                        <div>
-                          <div className="text-slate-500 text-sm">Finaliza</div>
-                          <div className="text-slate-300">{voting.endDate}</div>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div>
-                          <div className="text-slate-500 text-sm">Retorno</div>
-                          <div className={voting.actualReturn! > 0 ? 'text-emerald-400' : 'text-red-400'}>
-                            {voting.actualReturn}u
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-slate-500 text-sm">Resultado</div>
-                          <div className="flex items-center gap-1.5">
-                            {voting.result === 'won' ? (
-                              <>
-                                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                                <span className="text-emerald-400">Ganaste</span>
-                              </>
-                            ) : (
-                              <>
-                                <XCircle className="w-4 h-4 text-red-400" />
-                                <span className="text-red-400">Perdiste</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-slate-500 text-sm">Ganancia/Pérdida</div>
-                          <div className={voting.actualReturn! - voting.amount > 0 ? 'text-emerald-400' : 'text-red-400'}>
-                            {voting.actualReturn! - voting.amount > 0 ? '+' : ''}{voting.actualReturn! - voting.amount}u
-                          </div>
-                        </div>
-                      </>
-                    )}
                   </div>
                 </div>
+
+                {/* Bets Detail */}
+                <div className="space-y-2 pt-4 border-t border-slate-800">
+                  <div className="text-sm text-slate-400 mb-2">Tus apuestas:</div>
+                  {bet.bets.map((userBet, index) => (
+                    <div key={index} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${
+                          bet.predictionStatus === 4 && userBet.optionIndex === bet.winningOption
+                            ? 'bg-emerald-400'
+                            : 'bg-slate-600'
+                        }`}></div>
+                        <span className="text-slate-300">{userBet.optionDescription}</span>
+                        {bet.predictionStatus === 4 && userBet.optionIndex === bet.winningOption && (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        )}
+                      </div>
+                      <span className="text-slate-400">{userBet.amount} tokens</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Action Button */}
+                {bet.canClaim && (
+                  <div className="mt-4 pt-4 border-t border-slate-800">
+                    <div className="flex items-center justify-between">
+                      <span className="text-emerald-400 text-sm font-medium">¡Puedes reclamar tus ganancias!</span>
+                      <TrendingUp className="w-5 h-5 text-emerald-400" />
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

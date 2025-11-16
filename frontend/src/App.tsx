@@ -12,13 +12,15 @@ import { PredictionDetailPage } from './components/PredictionDetailPage';
 import { CoinDetailPage } from './components/CoinDetailPage';
 import { CreatorProfilePage } from './components/CreatorProfilePage';
 import { MyProfilePage } from './components/MyProfilePage';
+import { CreatePredictionPage } from './components/CreatePredictionPage';
+import { CreateTokenPage } from './components/CreateTokenPage';
+import { OnboardingPage } from './components/OnboardingPage';
 import React from 'react';
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(true); // Changed to true for testing
   const [selectedCategory, setSelectedCategory] = useState('trending');
-  const [currentPage, setCurrentPage] = useState<'home' | 'my-votes' | 'my-wallet' | 'my-subscriptions' | 'my-uvotes' | 'my-coin' | 'prediction-detail' | 'coin-detail' | 'creator-profile' | 'my-profile'>('home');
-  const [previousPage, setPreviousPage] = useState<'home' | 'my-votes' | 'my-wallet' | 'my-subscriptions' | 'my-uvotes' | 'my-coin' | 'prediction-detail' | 'coin-detail' | 'creator-profile' | 'my-profile'>('home');
+  const [currentPage, setCurrentPage] = useState<'home' | 'my-votes' | 'my-wallet' | 'my-subscriptions' | 'my-uvotes' | 'my-coin' | 'prediction-detail' | 'coin-detail' | 'creator-profile' | 'my-profile' | 'create-prediction' | 'create-token' | 'onboarding'>('home');
+  const [previousPage, setPreviousPage] = useState<'home' | 'my-votes' | 'my-wallet' | 'my-subscriptions' | 'my-uvotes' | 'my-coin' | 'prediction-detail' | 'coin-detail' | 'creator-profile' | 'my-profile' | 'create-prediction' | 'create-token' | 'onboarding'>('home');
   const [selectedPredictionId, setSelectedPredictionId] = useState<string | null>(null);
   const [selectedCoinId, setSelectedCoinId] = useState<string | null>(null);
   const [selectedCreatorId, setSelectedCreatorId] = useState<string | null>(null);
@@ -44,9 +46,16 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#0a0a0f]">
       <Header 
-        isLoggedIn={isLoggedIn} 
-        onLogin={() => setIsLoggedIn(true)}
         onProfileClick={() => setCurrentPage('my-profile')}
+        onAccessClick={() => setCurrentPage('onboarding')}
+        onCreateClick={() => {
+          setPreviousPage(currentPage);
+          setCurrentPage('create-prediction');
+        }}
+        onCreateTokenClick={() => {
+          setPreviousPage(currentPage);
+          setCurrentPage('create-token');
+        }}
       />
       
       <div className="flex pt-16">
@@ -83,11 +92,16 @@ export default function App() {
               predictionId={selectedPredictionId}
               isCreatorView={isCreatorView}
               onBack={() => setCurrentPage(previousPage)}
+              onBuyTokens={(tokenAddress) => {
+                setSelectedCoinId(tokenAddress);
+                setPreviousPage('prediction-detail');
+                setCurrentPage('coin-detail');
+              }}
             />
           ) : currentPage === 'coin-detail' && selectedCoinId ? (
             <CoinDetailPage
               coinId={selectedCoinId}
-              onBack={() => setCurrentPage('my-wallet')}
+              onBack={() => setCurrentPage(previousPage)}
             />
           ) : currentPage === 'creator-profile' && selectedCreatorId ? (
             <CreatorProfilePage
@@ -96,6 +110,24 @@ export default function App() {
             />
           ) : currentPage === 'my-profile' ? (
             <MyProfilePage onBack={() => setCurrentPage('home')} />
+          ) : currentPage === 'create-prediction' ? (
+            <CreatePredictionPage 
+              onBack={() => setCurrentPage(previousPage)}
+              onCreated={(predictionId) => {
+                setSelectedPredictionId(predictionId);
+                setCurrentPage('prediction-detail');
+              }}
+            />
+          ) : currentPage === 'create-token' ? (
+            <CreateTokenPage 
+              onBack={() => setCurrentPage(previousPage)}
+              onCreated={() => setCurrentPage('my-uvotes')}
+            />
+          ) : currentPage === 'onboarding' ? (
+            <OnboardingPage 
+              onCompleted={() => setCurrentPage('home')}
+              onBack={() => setCurrentPage('home')}
+            />
           ) : null}
         </main>
       </div>

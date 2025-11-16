@@ -59,7 +59,6 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
         uint256 cooldownEndsAt;
         uint256 reportCount;
         uint256 totalPool;
-        uint256 creatorFee;      // Fee % para el creador (ej: 5 = 5%)
     }
     
     // Configuración del sistema
@@ -137,21 +136,18 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
      * @param description Descripción
      * @param optionDescriptions Descripciones de las opciones (mínimo 2)
      * @param duration Duración en segundos hasta el cierre
-     * @param creatorFee Fee del creador en porcentaje (0-10%)
      */
     function createPrediction(
         address creatorToken,
         string memory title,
         string memory description,
         string[] memory optionDescriptions,
-        uint256 duration,
-        uint256 creatorFee
+        uint256 duration
     ) external returns (uint256) {
         require(optionDescriptions.length >= 2, "Need at least 2 options");
         require(optionDescriptions.length <= 10, "Too many options");
-        require(duration >= 1 minutes, "Duration too short");
-        require(duration <= 365 days, "Duration too long");
-        require(creatorFee <= 10, "Fee too high (max 10%)");
+        // duration = 0 significa predicción indefinida (sin tiempo límite)
+        require(duration == 0 || (duration >= 1 minutes && duration <= 365 days), "Invalid duration");
         
         // Verificar que el creador tenga un token y no esté baneado
         require(factory.isCreatorActive(msg.sender), "Creator is not active or banned");
@@ -169,9 +165,9 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
         pred.title = title;
         pred.description = description;
         pred.createdAt = block.timestamp;
-        pred.closesAt = block.timestamp + duration;
+        // Si duration = 0, la predicción es indefinida (sin tiempo límite)
+        pred.closesAt = duration == 0 ? type(uint256).max : block.timestamp + duration;
         pred.status = PredictionStatus.Active;
-        pred.creatorFee = creatorFee;
         
         // Crear las opciones
         for (uint256 i = 0; i < optionDescriptions.length; i++) {
@@ -208,9 +204,13 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
         
         require(pred.id != 0, "Prediction does not exist");
         require(pred.status == PredictionStatus.Active, "Prediction not active");
-        require(block.timestamp < pred.closesAt, "Prediction closed");
+        // Validar tiempo: si closesAt es max, es indefinida; si no, verificar que no haya expirado
+        require(pred.closesAt == type(uint256).max || block.timestamp < pred.closesAt, "Prediction closed");
         require(optionIndex < pred.options.length, "Invalid option");
         require(amount > 0, "Amount must be greater than 0");
+        
+        // El creador NO puede apostar en su propia predicción
+        require(msg.sender != pred.creator, "Creator cannot bet on own prediction");
         
         // Verificar que el creador no esté baneado
         require(factory.isCreatorActive(pred.creator), "Creator is banned");
@@ -247,8 +247,9 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
         
         require(pred.id != 0, "Prediction does not exist");
         require(pred.status == PredictionStatus.Active, "Prediction not active");
+        // El creador puede cerrar manualmente, o se cierra automáticamente cuando expira
         require(
-            msg.sender == pred.creator || block.timestamp >= pred.closesAt,
+            msg.sender == pred.creator || (pred.closesAt != type(uint256).max && block.timestamp >= pred.closesAt),
             "Not authorized or not expired"
         );
         
@@ -312,6 +313,23 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
     }
     
     /**
+     * @dev Confirma automáticamente una predicción si el cooldown terminó
+     * Cualquiera puede llamar esta función para confirmar automáticamente
+     * @param predictionId ID de la predicción
+     */
+    function autoConfirmOutcome(uint256 predictionId) external {
+        Prediction storage pred = predictions[predictionId];
+        
+        require(pred.id != 0, "Prediction does not exist");
+        require(pred.status == PredictionStatus.Cooldown, "Not in cooldown");
+        require(block.timestamp >= pred.cooldownEndsAt, "Cooldown not finished");
+        
+        pred.status = PredictionStatus.Confirmed;
+        
+        emit OutcomeConfirmed(predictionId, block.timestamp);
+    }
+    
+    /**
      * @dev Confirma el resultado tras revisión humana (solo owner)
      * @param predictionId ID de la predicción
      */
@@ -359,6 +377,13 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
         Prediction storage pred = predictions[predictionId];
         
         require(pred.id != 0, "Prediction does not exist");
+        
+        // Si está en Cooldown y el cooldown terminó, confirmar automáticamente
+        if (pred.status == PredictionStatus.Cooldown && block.timestamp >= pred.cooldownEndsAt) {
+            pred.status = PredictionStatus.Confirmed;
+            emit OutcomeConfirmed(predictionId, block.timestamp);
+        }
+        
         require(pred.status == PredictionStatus.Confirmed, "Prediction not confirmed");
         
         Bet[] storage bets = userBets[predictionId][msg.sender];
@@ -427,12 +452,9 @@ contract PredictionMarket is Ownable, ReentrancyGuard {
             return betAmount;
         }
         
-        // Calcular fee del creador
-        uint256 creatorCut = (losingPool * pred.creatorFee) / 100;
-        uint256 winnersPool = losingPool - creatorCut;
-        
-        // Calcular proporción del apostador
-        uint256 reward = betAmount + ((betAmount * winnersPool) / winningPool);
+        // Los ganadores reciben TODO el pool de perdedores proporcionalmente
+        // Recompensa = apuesta + proporción del pool de perdedores
+        uint256 reward = betAmount + ((betAmount * losingPool) / winningPool);
         
         return reward;
     }

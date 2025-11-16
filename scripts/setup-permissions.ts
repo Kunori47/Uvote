@@ -1,4 +1,4 @@
-import { ethers } from "hardhat";
+import { network } from "hardhat";
 
 /**
  * Script para configurar los permisos después del despliegue
@@ -8,10 +8,12 @@ import { ethers } from "hardhat";
  */
 
 async function main() {
-  // Direcciones de los contratos desplegados (ACTUALIZAR CON TUS DIRECCIONES)
-  const FACTORY_ADDRESS = "0x..."; // Dirección del CreatorTokenFactory
-  const PREDICTION_MARKET_ADDRESS = "0x..."; // Dirección del PredictionMarket
-  const TOKEN_EXCHANGE_ADDRESS = "0x..."; // Dirección del TokenExchange
+  const { ethers } = await network.connect();
+  
+  // Direcciones de los contratos desplegados (Hardhat local)
+  const FACTORY_ADDRESS = "0x67d269191c92Caf3cD7723F116c85e6E9bf55933";
+  const PREDICTION_MARKET_ADDRESS = "0xE6E340D132b5f46d1e472DebcD681B2aBc16e57E";
+  const TOKEN_EXCHANGE_ADDRESS = "0xc3e53F4d16Ae77Db1c982e75a937B9f60FE63690";
   
   console.log("Configurando permisos del sistema...");
   

@@ -1,5 +1,9 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { PredictionCard } from './PredictionCard';
+import { usePredictions } from '../hooks/usePredictions';
+import { apiService } from '../lib/apiService';
+import { CONTRACT_ADDRESSES, NETWORK_CONFIG } from '../lib/contracts';
 
 interface PredictionOption {
   id: string;
@@ -137,21 +141,158 @@ interface PredictionFeedProps {
 }
 
 export function PredictionFeed({ category, onViewPrediction }: PredictionFeedProps) {
-  const filteredPredictions = category === 'trending' 
-    ? mockPredictions 
-    : mockPredictions.filter(p => p.category === category);
+  const { predictions: blockchainPredictions, loading, error } = usePredictions();
+  const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
+
+  // Cargar imágenes desde Supabase para cada predicción
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadImages = async () => {
+      if (!blockchainPredictions || blockchainPredictions.length === 0) {
+        setThumbnails({});
+        return;
+      }
+
+      try {
+        const entries: Array<[string, string]> = [];
+
+        await Promise.all(
+          blockchainPredictions.map(async (pred) => {
+            const img = await apiService.getPredictionImage(
+              pred.id,
+              CONTRACT_ADDRESSES.PredictionMarket,
+              NETWORK_CONFIG.chainId
+            );
+            if (img && img.image_url) {
+              entries.push([pred.id, img.image_url as string]);
+            }
+          })
+        );
+
+        if (!cancelled) {
+          const map: Record<string, string> = {};
+          for (const [id, url] of entries) {
+            map[id] = url;
+          }
+          setThumbnails(map);
+        }
+      } catch (e) {
+        console.error('Error loading prediction thumbnails:', e);
+      }
+    };
+
+    loadImages();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [blockchainPredictions]);
+
+  // Convertir predicciones de blockchain al formato esperado por PredictionCard
+  const formattedPredictions: Prediction[] = useMemo(() => {
+    return blockchainPredictions.map((pred) => {
+      // Calcular fecha de fin legible
+      // Si closesAt es un valor muy grande (type(uint256).max), es una predicción indefinida
+      const MAX_SAFE_TIMESTAMP = 10 ** 15; // Un valor muy grande pero seguro para Date
+      let endDate: string;
+      
+      if (pred.closesAt > MAX_SAFE_TIMESTAMP) {
+        // Predicción indefinida (sin tiempo límite)
+        endDate = 'Indefinida';
+      } else {
+        try {
+          const date = new Date(pred.closesAt * 1000);
+          if (isNaN(date.getTime())) {
+            endDate = 'Indefinida';
+          } else {
+            endDate = date.toISOString().split('T')[0];
+          }
+        } catch {
+          endDate = 'Indefinida';
+        }
+      }
+      
+      // Formatear opciones
+      const options = pred.options.map((opt, index) => ({
+        id: index.toString(),
+        label: opt.description,
+        votes: parseFloat(opt.totalAmount),
+      }));
+
+      // Determinar categoría basada en keywords en el título (temporal)
+      let predCategory = 'other';
+      const title = pred.title.toLowerCase();
+      if (title.includes('deporte') || title.includes('fútbol') || title.includes('madrid')) {
+        predCategory = 'sports';
+      } else if (title.includes('juego') || title.includes('gaming') || title.includes('gta')) {
+        predCategory = 'gaming';
+      } else if (title.includes('crypto') || title.includes('bitcoin') || title.includes('eth')) {
+        predCategory = 'crypto';
+      } else if (title.includes('tech') || title.includes('tecnología') || title.includes('iphone')) {
+        predCategory = 'tech';
+      }
+
+      return {
+        id: pred.id,
+        creator: {
+          name: `${pred.creator.slice(0, 6)}...${pred.creator.slice(-4)}`,
+          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${pred.creator}`,
+          verified: true, // TODO: Verificar desde CreatorTokenFactory si está activo
+        },
+        question: pred.title,
+        category: predCategory,
+        totalPool: parseFloat(pred.totalPool),
+        options,
+        endDate,
+        thumbnail:
+          thumbnails[pred.id] ||
+          `https://api.dicebear.com/7.x/shapes/svg?seed=${pred.id}`, // Placeholder si no hay imagen
+      };
+    });
+  }, [blockchainPredictions, thumbnails]);
+
+  // Filtrar por categoría
+  const filteredPredictions = useMemo(() => {
+    if (category === 'trending') {
+      return formattedPredictions;
+    }
+    return formattedPredictions.filter((p) => p.category === category);
+  }, [formattedPredictions, category]);
+
+  // Fallback a mocks si no hay predicciones reales (para desarrollo)
+  const displayPredictions = filteredPredictions.length > 0 
+    ? filteredPredictions 
+    : (category === 'trending' ? mockPredictions : mockPredictions.filter(p => p.category === category));
 
   return (
     <div className="p-8">
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5 max-w-[1800px]">
-        {filteredPredictions.map((prediction) => (
-          <PredictionCard 
-            key={prediction.id} 
-            prediction={prediction} 
-            onClick={() => onViewPrediction?.(prediction.id)} 
-          />
-        ))}
-      </div>
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mb-4" />
+          <p className="text-slate-400">Cargando predicciones desde blockchain...</p>
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <p className="text-red-400 mb-2">Error al cargar predicciones</p>
+          <p className="text-slate-500 text-sm">{error}</p>
+        </div>
+      ) : displayPredictions.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <p className="text-slate-400 mb-2">No hay predicciones en esta categoría</p>
+          <p className="text-slate-500 text-sm">Crea la primera predicción</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5 max-w-[1800px]">
+          {displayPredictions.map((prediction) => (
+            <PredictionCard 
+              key={prediction.id} 
+              prediction={prediction} 
+              onClick={() => onViewPrediction?.(prediction.id)} 
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

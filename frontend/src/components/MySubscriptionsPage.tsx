@@ -1,217 +1,92 @@
 import { useState } from 'react';
-import { Search, ArrowUpDown, Users, Bell, BellOff, TrendingUp } from 'lucide-react';
+import { Search, ArrowUpDown, Users, TrendingUp, Loader2, UserMinus, Wallet } from 'lucide-react';
 import React from 'react';
+import { useWallet } from '../hooks/useWallet';
+import { useSubscriptions } from '../hooks/useSubscriptions';
+import { useUserTokens } from '../hooks/useUserTokens';
 
-interface Subscription {
+interface SubscriptionDisplay {
   id: string;
+  creatorAddress: string;
   creatorName: string;
   creatorAvatar: string;
-  category: string;
   followedSince: string;
-  followers: number;
-  activePredictions: number;
-  totalPredictions: number;
-  winRate: number; // Porcentaje de predicciones acertadas
-  notificationsEnabled: boolean;
   hasCreatorCoin: boolean;
-  coinBalance?: number;
+  coinBalance?: string;
 }
 
-const mockSubscriptions: Subscription[] = [
-  {
-    id: '1',
-    creatorName: 'Ibai',
-    creatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop',
-    category: 'Gaming',
-    followedSince: '2024-01-15',
-    followers: 1250000,
-    activePredictions: 12,
-    totalPredictions: 156,
-    winRate: 68.5,
-    notificationsEnabled: true,
-    hasCreatorCoin: true,
-    coinBalance: 1000,
-  },
-  {
-    id: '2',
-    creatorName: 'El Rubius',
-    creatorAvatar: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=100&h=100&fit=crop',
-    category: 'Gaming',
-    followedSince: '2024-02-20',
-    followers: 980000,
-    activePredictions: 8,
-    totalPredictions: 132,
-    winRate: 71.2,
-    notificationsEnabled: true,
-    hasCreatorCoin: true,
-    coinBalance: 700,
-  },
-  {
-    id: '3',
-    creatorName: 'AuronPlay',
-    creatorAvatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&h=100&fit=crop',
-    category: 'Entertainment',
-    followedSince: '2024-03-10',
-    followers: 850000,
-    activePredictions: 15,
-    totalPredictions: 203,
-    winRate: 65.8,
-    notificationsEnabled: false,
-    hasCreatorCoin: true,
-    coinBalance: 500,
-  },
-  {
-    id: '4',
-    creatorName: 'ElSpreen',
-    creatorAvatar: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100&h=100&fit=crop',
-    category: 'Gaming',
-    followedSince: '2024-04-05',
-    followers: 620000,
-    activePredictions: 6,
-    totalPredictions: 89,
-    winRate: 73.4,
-    notificationsEnabled: true,
-    hasCreatorCoin: true,
-    coinBalance: 850,
-  },
-  {
-    id: '5',
-    creatorName: 'Germán',
-    creatorAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop',
-    category: 'Comedy',
-    followedSince: '2024-05-12',
-    followers: 740000,
-    activePredictions: 10,
-    totalPredictions: 145,
-    winRate: 69.7,
-    notificationsEnabled: true,
-    hasCreatorCoin: true,
-    coinBalance: 300,
-  },
-  {
-    id: '6',
-    creatorName: 'Coscu',
-    creatorAvatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop',
-    category: 'Gaming',
-    followedSince: '2024-06-08',
-    followers: 580000,
-    activePredictions: 9,
-    totalPredictions: 112,
-    winRate: 64.3,
-    notificationsEnabled: false,
-    hasCreatorCoin: true,
-    coinBalance: 450,
-  },
-  {
-    id: '7',
-    creatorName: 'Luzu',
-    creatorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop',
-    category: 'Entertainment',
-    followedSince: '2024-07-22',
-    followers: 490000,
-    activePredictions: 7,
-    totalPredictions: 98,
-    winRate: 70.1,
-    notificationsEnabled: true,
-    hasCreatorCoin: true,
-    coinBalance: 600,
-  },
-  {
-    id: '8',
-    creatorName: 'Reven',
-    creatorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
-    category: 'Sports',
-    followedSince: '2024-08-15',
-    followers: 320000,
-    activePredictions: 5,
-    totalPredictions: 67,
-    winRate: 75.2,
-    notificationsEnabled: false,
-    hasCreatorCoin: true,
-    coinBalance: 200,
-  },
-  {
-    id: '9',
-    creatorName: 'Ampeterby7',
-    creatorAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
-    category: 'Gaming',
-    followedSince: '2024-09-03',
-    followers: 280000,
-    activePredictions: 11,
-    totalPredictions: 124,
-    winRate: 62.9,
-    notificationsEnabled: true,
-    hasCreatorCoin: false,
-  },
-  {
-    id: '10',
-    creatorName: 'Rivers',
-    creatorAvatar: 'https://images.unsplash.com/photo-1463453091185-61582044d556?w=100&h=100&fit=crop',
-    category: 'Music',
-    followedSince: '2024-10-01',
-    followers: 410000,
-    activePredictions: 4,
-    totalPredictions: 56,
-    winRate: 78.6,
-    notificationsEnabled: true,
-    hasCreatorCoin: false,
-  },
-];
-
-type SortOption = 'name-asc' | 'name-desc' | 'followers-desc' | 'followers-asc' | 'date-desc' | 'date-asc' | 'winrate-desc' | 'winrate-asc';
+type SortOption = 'name-asc' | 'name-desc' | 'date-desc' | 'date-asc';
 
 const sortOptions = [
   { id: 'name-asc' as SortOption, label: 'Nombre A-Z' },
   { id: 'name-desc' as SortOption, label: 'Nombre Z-A' },
-  { id: 'followers-desc' as SortOption, label: 'Más seguidores' },
-  { id: 'followers-asc' as SortOption, label: 'Menos seguidores' },
   { id: 'date-desc' as SortOption, label: 'Seguidos recientemente' },
   { id: 'date-asc' as SortOption, label: 'Seguidos primero' },
-  { id: 'winrate-desc' as SortOption, label: 'Mayor % acierto' },
-  { id: 'winrate-asc' as SortOption, label: 'Menor % acierto' },
-];
-
-const categoryFilters = [
-  { id: 'all', label: 'Todas las categorías' },
-  { id: 'Gaming', label: 'Gaming' },
-  { id: 'Entertainment', label: 'Entertainment' },
-  { id: 'Sports', label: 'Sports' },
-  { id: 'Music', label: 'Music' },
-  { id: 'Comedy', label: 'Comedy' },
 ];
 
 interface MySubscriptionsPageProps {
-  onViewCreator?: (creatorId: string) => void;
+  onViewCreator?: (creatorAddress: string) => void;
 }
 
 export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps) {
-  const [sortBy, setSortBy] = useState<SortOption>('followers-desc');
+  const { address, isConnected } = useWallet();
+  const { subscriptions: rawSubscriptions, loading, error, unsubscribe: unsubscribeApi } = useSubscriptions(address);
+  const { tokens: userTokens } = useUserTokens(address);
+  
+  const [sortBy, setSortBy] = useState<SortOption>('date-desc');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSortMenu, setShowSortMenu] = useState(false);
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [subscriptions, setSubscriptions] = useState(mockSubscriptions);
+  const [unsubscribingId, setUnsubscribingId] = useState<string | null>(null);
+
+  // Transformar subscriptions del backend a formato display
+  const subscriptions: SubscriptionDisplay[] = rawSubscriptions.map((sub) => {
+    const creator = sub.creator;
+    const creatorName = creator?.display_name || creator?.username || `${sub.creator_address.slice(0, 6)}...${sub.creator_address.slice(-4)}`;
+    const creatorAvatar = creator?.profile_image_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${sub.creator_address}`;
+    
+    // Verificar si el usuario tiene tokens de este creador
+    const userToken = userTokens.find(t => t.creatorAddress.toLowerCase() === sub.creator_address.toLowerCase());
+    
+    return {
+      id: sub.id.toString(),
+      creatorAddress: sub.creator_address,
+      creatorName,
+      creatorAvatar,
+      followedSince: new Date(sub.created_at).toLocaleDateString('es-ES'),
+      hasCreatorCoin: !!userToken,
+      coinBalance: userToken?.balance,
+    };
+  });
 
   // Statistics
   const stats = {
     totalSubscriptions: subscriptions.length,
-    withNotifications: subscriptions.filter(s => s.notificationsEnabled).length,
     withCoins: subscriptions.filter(s => s.hasCreatorCoin).length,
-    totalActivePredictions: subscriptions.reduce((sum, s) => sum + s.activePredictions, 0),
   };
 
-  // Toggle notifications
-  const toggleNotifications = (id: string) => {
-    setSubscriptions(subscriptions.map(sub => 
-      sub.id === id ? { ...sub, notificationsEnabled: !sub.notificationsEnabled } : sub
-    ));
+  // Desuscribirse
+  const handleUnsubscribe = async (creatorAddress: string, creatorName: string) => {
+    if (!confirm(`¿Estás seguro de que quieres dejar de seguir a ${creatorName}?`)) {
+      return;
+    }
+    
+    try {
+      setUnsubscribingId(creatorAddress);
+      await unsubscribeApi(creatorAddress);
+    } catch (err: any) {
+      console.error('Error unsubscribing:', err);
+      alert(err.message || 'Error al desuscribirse');
+    } finally {
+      setUnsubscribingId(null);
+    }
   };
 
   // Filter and sort
   const filteredAndSortedSubscriptions = subscriptions
     .filter((sub) => {
-      const matchesSearch = sub.creatorName.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = categoryFilter === 'all' || sub.category === categoryFilter;
-      return matchesSearch && matchesCategory;
+      const matchesSearch = sub.creatorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           sub.creatorAddress.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesSearch;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -219,215 +94,183 @@ export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps)
           return a.creatorName.localeCompare(b.creatorName);
         case 'name-desc':
           return b.creatorName.localeCompare(a.creatorName);
-        case 'followers-desc':
-          return b.followers - a.followers;
-        case 'followers-asc':
-          return a.followers - b.followers;
         case 'date-desc':
           return new Date(b.followedSince).getTime() - new Date(a.followedSince).getTime();
         case 'date-asc':
           return new Date(a.followedSince).getTime() - new Date(b.followedSince).getTime();
-        case 'winrate-desc':
-          return b.winRate - a.winRate;
-        case 'winrate-asc':
-          return a.winRate - b.winRate;
         default:
           return 0;
       }
     });
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays < 30) return `Hace ${diffDays} días`;
-    if (diffDays < 365) return `Hace ${Math.floor(diffDays / 30)} meses`;
-    return `Hace ${Math.floor(diffDays / 365)} años`;
-  };
-
-  const formatFollowers = (count: number) => {
-    if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
-    if (count >= 1000) return `${(count / 1000).toFixed(0)}K`;
-    return count.toString();
-  };
-
   return (
     <div className="p-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-slate-100 mb-6">Mis Suscripciones</h1>
+        <h1 className="text-3xl font-bold text-slate-100 mb-6">Mis Suscripciones</h1>
 
-        {/* Category Filters */}
-        <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-2">
-          {categoryFilters.map((category) => (
-            <button
-              key={category.id}
-              onClick={() => setCategoryFilter(category.id)}
-              className={`px-4 py-2 rounded-xl whitespace-nowrap transition-all ${
-                categoryFilter === category.id
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-slate-900/50 text-slate-400 border border-slate-800/50 hover:bg-slate-800/50 hover:text-slate-200'
-              }`}
-            >
-              {category.label}
-            </button>
-          ))}
-        </div>
+        {/* Stats */}
+        {isConnected && !loading && (
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Users className="w-4 h-4 text-emerald-400" />
+                <span className="text-slate-400 text-sm">Creadores seguidos</span>
+              </div>
+              <p className="text-2xl font-bold text-slate-100">{stats.totalSubscriptions}</p>
+            </div>
+            <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingUp className="w-4 h-4 text-emerald-400" />
+                <span className="text-slate-400 text-sm">Con monedas</span>
+              </div>
+              <p className="text-2xl font-bold text-slate-100">{stats.withCoins}</p>
+            </div>
+          </div>
+        )}
 
         {/* Search and Sort */}
-        <div className="flex items-center gap-3">
-          {/* Search */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Buscar creador..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-slate-900/50 border border-slate-800/50 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50 transition-colors"
-            />
-          </div>
+        {isConnected && subscriptions.length > 0 && (
+          <div className="flex items-center gap-3">
+            {/* Search */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <input
+                type="text"
+                placeholder="Buscar creador..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-slate-900/50 border border-slate-800/50 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50 transition-colors"
+              />
+            </div>
 
-          {/* Sort */}
-          <div className="relative">
-            <button
-              onClick={() => setShowSortMenu(!showSortMenu)}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-900/50 border border-slate-800/50 rounded-xl text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 transition-all whitespace-nowrap"
-            >
-              <ArrowUpDown className="w-4 h-4" />
-              <span>Ordenar</span>
-            </button>
+            {/* Sort */}
+            <div className="relative">
+              <button
+                onClick={() => setShowSortMenu(!showSortMenu)}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-900/50 border border-slate-800/50 rounded-xl text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 transition-all whitespace-nowrap"
+              >
+                <ArrowUpDown className="w-4 h-4" />
+                <span>Ordenar</span>
+              </button>
 
-            {showSortMenu && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-slate-900 border border-slate-800/50 rounded-xl shadow-xl z-10">
-                {sortOptions.map((option) => (
-                  <button
-                    key={option.id}
-                    onClick={() => {
-                      setSortBy(option.id);
-                      setShowSortMenu(false);
-                    }}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition-all first:rounded-t-xl last:rounded-b-xl ${
-                      sortBy === option.id
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            )}
+              {showSortMenu && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-10" 
+                    onClick={() => setShowSortMenu(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-2 w-56 bg-slate-900 border border-slate-800/50 rounded-xl shadow-xl z-20">
+                    {sortOptions.map((option) => (
+                      <button
+                        key={option.id}
+                        onClick={() => {
+                          setSortBy(option.id);
+                          setShowSortMenu(false);
+                        }}
+                        className={`w-full text-left px-4 py-2.5 text-sm transition-all first:rounded-t-xl last:rounded-b-xl ${
+                          sortBy === option.id
+                            ? 'bg-emerald-500/20 text-emerald-400'
+                            : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Subscriptions List */}
       <div className="space-y-3">
-        {filteredAndSortedSubscriptions.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
-            No se encontraron creadores
+        {!isConnected ? (
+          <div className="text-center py-12">
+            <Wallet className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+            <p className="text-slate-400">Conecta tu wallet para ver tus suscripciones</p>
+          </div>
+        ) : loading ? (
+          <div className="text-center py-12">
+            <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mx-auto mb-4" />
+            <p className="text-slate-400">Cargando suscripciones...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-12">
+            <p className="text-red-400">{error}</p>
+          </div>
+        ) : filteredAndSortedSubscriptions.length === 0 ? (
+          <div className="text-center py-12">
+            <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+            <p className="text-slate-400 mb-2">
+              {searchQuery ? 'No se encontraron creadores' : 'No sigues a ningún creador aún'}
+            </p>
+            {!searchQuery && (
+              <p className="text-slate-500 text-sm">Explora predicciones y sigue a tus creadores favoritos</p>
+            )}
           </div>
         ) : (
           filteredAndSortedSubscriptions.map((sub) => (
             <div
               key={sub.id}
-              onClick={() => onViewCreator?.(sub.id)}
-              className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4 hover:bg-slate-900/50 hover:border-slate-700/50 transition-all cursor-pointer"
+              className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4 hover:bg-slate-900/50 hover:border-slate-700/50 transition-all"
             >
               <div className="flex items-center gap-4">
                 {/* Avatar */}
-                <div className="flex-shrink-0">
+                <div 
+                  className="flex-shrink-0 cursor-pointer"
+                  onClick={() => onViewCreator?.(sub.creatorAddress)}
+                >
                   <img
                     src={sub.creatorAvatar}
                     alt={sub.creatorName}
-                    className="w-16 h-16 rounded-full object-cover border-2 border-slate-800/50"
+                    className="w-16 h-16 rounded-full object-cover border-2 border-slate-800/50 hover:border-emerald-500/50 transition-colors"
                   />
                 </div>
 
                 {/* Creator Info */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-1">
-                    <h3 className="text-slate-100">{sub.creatorName}</h3>
-                    <span className="px-2 py-0.5 bg-slate-800/50 border border-slate-700/50 rounded text-slate-400 text-xs">
-                      {sub.category}
-                    </span>
+                  <div className="flex items-center gap-3 mb-1 flex-wrap">
+                    <h3 
+                      className="text-lg font-semibold text-slate-100 hover:text-emerald-400 transition-colors cursor-pointer"
+                      onClick={() => onViewCreator?.(sub.creatorAddress)}
+                    >
+                      {sub.creatorName}
+                    </h3>
                     {sub.hasCreatorCoin && (
-                      <span className="px-2 py-0.5 bg-emerald-500/20 border border-emerald-500/30 rounded text-emerald-400 text-xs flex items-center gap-1">
+                      <span className="px-2 py-1 bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-emerald-400 text-xs flex items-center gap-1">
                         <TrendingUp className="w-3 h-3" />
-                        {sub.coinBalance} monedas
+                        {sub.coinBalance} tokens
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-2 text-slate-500 text-sm">
-                    <Users className="w-3.5 h-3.5" />
-                    <span>{formatFollowers(sub.followers)} seguidores</span>
-                    <span className="text-slate-700">•</span>
-                    <span>{formatDate(sub.followedSince)}</span>
+                    <span>Siguiendo desde {sub.followedSince}</span>
                   </div>
                 </div>
 
-                {/* Stats Grid */}
-                <div className="hidden md:grid grid-cols-3 gap-8 flex-shrink-0">
-                  {/* Win Rate */}
-                  <div>
-                    <div className="text-slate-500 text-sm mb-1">% Acierto</div>
-                    <div className={`${sub.winRate >= 70 ? 'text-emerald-400' : sub.winRate >= 60 ? 'text-blue-400' : 'text-slate-400'}`}>
-                      {sub.winRate}%
-                    </div>
-                  </div>
-
-                  {/* Predictions */}
-                  <div>
-                    <div className="text-slate-500 text-sm mb-1">Predicciones</div>
-                    <div className="text-slate-200">
-                      {sub.activePredictions} / {sub.totalPredictions}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div>
-                    <div className="text-slate-500 text-sm mb-1">Notificaciones</div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleNotifications(sub.id);
-                      }}
-                      className={`p-1.5 rounded-lg transition-all ${
-                        sub.notificationsEnabled
-                          ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
-                          : 'bg-slate-800/50 text-slate-500 hover:bg-slate-800'
-                      }`}
-                    >
-                      {sub.notificationsEnabled ? (
-                        <Bell className="w-4 h-4" />
-                      ) : (
-                        <BellOff className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Mobile Stats */}
-                <div className="md:hidden flex flex-col items-end gap-2 flex-shrink-0">
-                  <div className="text-slate-100">{sub.activePredictions} activas</div>
+                {/* Actions */}
+                <div className="flex items-center gap-2">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleNotifications(sub.id);
+                      handleUnsubscribe(sub.creatorAddress, sub.creatorName);
                     }}
-                    className={`p-1.5 rounded-lg transition-all ${
-                      sub.notificationsEnabled
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'bg-slate-800/50 text-slate-500'
-                    }`}
+                    disabled={unsubscribingId === sub.creatorAddress}
+                    className="px-4 py-2 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                   >
-                    {sub.notificationsEnabled ? (
-                      <Bell className="w-4 h-4" />
+                    {unsubscribingId === sub.creatorAddress ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Cancelando...
+                      </>
                     ) : (
-                      <BellOff className="w-4 h-4" />
+                      <>
+                        <UserMinus className="w-4 h-4" />
+                        Dejar de seguir
+                      </>
                     )}
                   </button>
                 </div>

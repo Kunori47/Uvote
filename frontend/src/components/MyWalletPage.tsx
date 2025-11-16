@@ -5,8 +5,11 @@ import {
   TrendingUp,
   TrendingDown,
   Wallet,
+  Loader2,
 } from "lucide-react";
 import React from "react";
+import { useWallet } from "../hooks/useWallet";
+import { useUserTokens } from "../hooks/useUserTokens";
 
 interface PriceChange {
   date: string;
@@ -242,51 +245,47 @@ interface MyWalletPageProps {
 }
 
 export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
-  const [sortBy, setSortBy] =
-    useState<SortOption>("coins-desc");
+  const [sortBy, setSortBy] = useState<SortOption>("coins-desc");
   const [searchQuery, setSearchQuery] = useState("");
   const [showSortMenu, setShowSortMenu] = useState(false);
+  
+  // Obtener wallet y tokens reales
+  const { address, isConnected } = useWallet();
+  const { tokens: userTokens, loading, error } = useUserTokens(address);
 
-  // Statistics
+  // Statistics (calculadas desde tokens reales)
   const stats = {
-    totalCreators: mockCoins.length,
-    totalCoins: mockCoins.reduce(
-      (sum, coin) => sum + coin.coinsOwned,
+    totalCreators: userTokens.length,
+    totalCoins: userTokens.reduce(
+      (sum, token) => sum + parseFloat(token.balance),
       0,
     ),
-    totalValue: mockCoins.reduce(
-      (sum, coin) => sum + coin.totalValue,
+    totalValue: userTokens.reduce(
+      (sum, token) => sum + parseFloat(token.totalValue),
       0,
     ),
-    totalInvested: mockCoins.reduce(
-      (sum, coin) => sum + coin.totalInvested,
-      0,
-    ),
+    totalInvested: 0, // TODO: Calcular desde histórico (requiere DB o eventos)
   };
 
-  const profitLoss = stats.totalValue - stats.totalInvested;
-  const profitLossPercentage = (
-    (profitLoss / stats.totalInvested) *
-    100
-  ).toFixed(2);
+  const profitLoss = 0; // TODO: Calcular cuando tengamos histórico
+  const profitLossPercentage = "0.00";
 
-  // Filter and sort
-  const filteredAndSortedCoins = mockCoins
-    .filter((coin) =>
-      coin.creatorName
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase()),
+  // Filter and sort tokens reales
+  const filteredAndSortedTokens = userTokens
+    .filter((token) =>
+      token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      token.symbol.toLowerCase().includes(searchQuery.toLowerCase())
     )
     .sort((a, b) => {
       switch (sortBy) {
         case "coins-desc":
-          return b.coinsOwned - a.coinsOwned;
+          return parseFloat(b.balance) - parseFloat(a.balance);
         case "coins-asc":
-          return a.coinsOwned - b.coinsOwned;
+          return parseFloat(a.balance) - parseFloat(b.balance);
         case "value-desc":
-          return b.totalValue - a.totalValue;
+          return parseFloat(b.totalValue) - parseFloat(a.totalValue);
         case "value-asc":
-          return a.totalValue - b.totalValue;
+          return parseFloat(a.totalValue) - parseFloat(b.totalValue);
         default:
           return 0;
       }
@@ -422,34 +421,40 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
 
       {/* Coins List */}
       <div className="space-y-3">
-        {filteredAndSortedCoins.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
-            No se encontraron monedas de creadores
+        {!isConnected ? (
+          <div className="text-center py-12">
+            <Wallet className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+            <p className="text-slate-400 mb-2">Conecta tu wallet para ver tus tokens</p>
+            <p className="text-slate-500 text-sm">Usa SubWallet o MetaMask</p>
+          </div>
+        ) : loading ? (
+          <div className="text-center py-12">
+            <Loader2 className="w-8 h-8 text-emerald-400 animate-spin mx-auto mb-4" />
+            <p className="text-slate-400">Cargando tus tokens...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-12">
+            <p className="text-red-400 mb-2">Error al cargar tokens</p>
+            <p className="text-slate-500 text-sm">{error}</p>
+          </div>
+        ) : filteredAndSortedTokens.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-slate-400 mb-2">No tienes tokens de creadores aún</p>
+            <p className="text-slate-500 text-sm">Compra tokens en el Exchange para empezar</p>
           </div>
         ) : (
-          filteredAndSortedCoins.map((coin) => {
-            const profitLoss =
-              coin.totalValue - coin.totalInvested;
-            const profitLossPercentage = (
-              (profitLoss / coin.totalInvested) *
-              100
-            ).toFixed(2);
-
+          filteredAndSortedTokens.map((token) => {
             return (
               <div
-                key={coin.id}
-                onClick={() => onViewCoin?.(coin.id)}
+                key={token.tokenAddress}
+                onClick={() => onViewCoin?.(token.tokenAddress)}
                 className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4 hover:bg-slate-900/50 hover:border-slate-700/50 transition-all cursor-pointer"
               >
                 <div className="flex items-center gap-4">
                   {/* Coin Image */}
                   <div className="flex-shrink-0">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-slate-800/50 to-slate-900/50 border-2 border-slate-700/50 flex items-center justify-center overflow-hidden">
-                      <img
-                        src={coin.coinImage}
-                        alt={coin.coinName}
-                        className="w-full h-full object-cover"
-                      />
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-600/20 to-slate-900/50 border-2 border-emerald-500/30 flex items-center justify-center overflow-hidden">
+                      <span className="text-2xl text-emerald-400">{token.symbol[0]}</span>
                     </div>
                   </div>
 
@@ -457,19 +462,19 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-1">
                       <h3 className="text-slate-100">
-                        {coin.coinName}
+                        {token.name}
                       </h3>
                       <span className="px-2 py-0.5 bg-slate-800/50 border border-slate-700/50 rounded text-slate-400 text-xs">
-                        {coin.coinSymbol}
+                        {token.symbol}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-slate-400 text-sm">
-                        por {coin.creatorName}
+                        {token.creatorAddress.slice(0, 6)}...{token.creatorAddress.slice(-4)}
                       </span>
                       <span className="text-slate-600">•</span>
-                      <span className="px-2 py-0.5 bg-slate-800/30 border border-slate-700/30 rounded text-slate-500 text-xs">
-                        {coin.category}
+                      <span className="px-2 py-0.5 bg-emerald-800/30 border border-emerald-700/30 rounded text-emerald-500 text-xs">
+                        On-Chain
                       </span>
                     </div>
                   </div>
@@ -480,32 +485,25 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
                       Tengo
                     </div>
                     <div className="text-emerald-400 text-xl">
-                      {coin.coinsOwned.toLocaleString()}
+                      {parseFloat(token.balance).toLocaleString(undefined, { 
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 2 
+                      })}
                     </div>
                     <div className="text-emerald-400/60 text-xs">
-                      {coin.coinSymbol}
+                      {token.symbol}
                     </div>
                   </div>
 
                   {/* Stats Grid */}
-                  <div className="hidden md:grid grid-cols-5 gap-8 flex-shrink-0">
+                  <div className="hidden md:grid grid-cols-3 gap-8 flex-shrink-0">
                     {/* Coin Value */}
                     <div>
                       <div className="text-slate-500 text-sm mb-1">
-                        Valor/Moneda
+                        Precio
                       </div>
                       <div className="text-slate-200">
-                        {coin.coinValue.toFixed(2)}u
-                      </div>
-                    </div>
-
-                    {/* Total Invested */}
-                    <div>
-                      <div className="text-slate-500 text-sm mb-1">
-                        Invertido
-                      </div>
-                      <div className="text-slate-200">
-                        {coin.totalInvested.toLocaleString()}u
+                        {parseFloat(token.price).toFixed(4)} ETH
                       </div>
                     </div>
 
@@ -515,32 +513,17 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
                         Valor Total
                       </div>
                       <div className="text-slate-100">
-                        {coin.totalValue.toLocaleString()}u
+                        {parseFloat(token.totalValue).toFixed(4)} ETH
                       </div>
                     </div>
 
-                    {/* Profit/Loss */}
+                    {/* Contract Address */}
                     <div>
                       <div className="text-slate-500 text-sm mb-1">
-                        Ganancia/Pérdida
+                        Contrato
                       </div>
-                      <div>
-                        <div
-                          className={
-                            profitLoss >= 0
-                              ? "text-emerald-400"
-                              : "text-red-400"
-                          }
-                        >
-                          {profitLoss >= 0 ? "+" : ""}
-                          {profitLoss.toLocaleString()}u
-                        </div>
-                        <div
-                          className={`text-xs ${profitLoss >= 0 ? "text-emerald-400/70" : "text-red-400/70"}`}
-                        >
-                          ({profitLoss >= 0 ? "+" : ""}
-                          {profitLossPercentage}%)
-                        </div>
+                      <div className="text-slate-400 text-xs font-mono">
+                        {token.tokenAddress.slice(0, 6)}...{token.tokenAddress.slice(-4)}
                       </div>
                     </div>
                   </div>
@@ -548,13 +531,10 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
                   {/* Mobile Stats */}
                   <div className="md:hidden flex-shrink-0 text-right">
                     <div className="text-slate-100 mb-1">
-                      {coin.totalValue.toLocaleString()}u
+                      {parseFloat(token.totalValue).toFixed(4)} ETH
                     </div>
-                    <div
-                      className={`text-sm ${profitLoss >= 0 ? "text-emerald-400" : "text-red-400"}`}
-                    >
-                      {profitLoss >= 0 ? "+" : ""}
-                      {profitLossPercentage}%
+                    <div className="text-slate-400 text-sm">
+                      @ {parseFloat(token.price).toFixed(4)} ETH
                     </div>
                   </div>
                 </div>

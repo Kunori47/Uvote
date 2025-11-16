@@ -19,11 +19,14 @@ contract TokenExchange is Ownable, ReentrancyGuard {
     // Referencia al factory
     CreatorTokenFactory public factory;
     
-    // Fee de la plataforma en % (ej: 1 = 1%)
-    uint256 public platformFee = 1;
+    // Fee de la plataforma en basis points (ej: 100 = 1%, 10000 = 100%)
+    uint256 public platformFee = 100; // 1% por defecto
     
     // Acumulado de fees para retirar
     uint256 public accumulatedFees;
+
+    // Ganancias acumuladas por cada creador (en moneda nativa)
+    mapping(address => uint256) public creatorEarnings;
     
     // Eventos
     event TokensPurchased(
@@ -69,15 +72,22 @@ contract TokenExchange is Ownable, ReentrancyGuard {
         CreatorToken token = CreatorToken(creatorToken);
         
         // Calcular fee de la plataforma
-        uint256 fee = (msg.value * platformFee) / 100;
-        uint256 amountAfterFee = msg.value - fee;
+        uint256 fee = (msg.value * platformFee) / 10000; // Cambiar a basis points para precisión
+        uint256 amountForCreator = msg.value - fee;
         
-        // Calcular cantidad de tokens a recibir
-        uint256 tokensToMint = token.calculateTokensForWei(amountAfterFee);
+        // Calcular cantidad de tokens a recibir (basado en el total enviado)
+        uint256 tokensToMint = token.calculateTokensForWei(msg.value);
         require(tokensToMint > 0, "Amount too small");
         
-        // Acumular fee
+        // Acumular fee de la plataforma
         accumulatedFees += fee;
+        
+        // Enviar dinero al creador
+        (bool success, ) = payable(creator).call{value: amountForCreator}("");
+        require(success, "Transfer to creator failed");
+
+        // Registrar ganancias del creador
+        creatorEarnings[creator] += amountForCreator;
         
         // Mintear tokens al comprador
         token.mint(msg.sender, tokensToMint);
@@ -200,7 +210,7 @@ contract TokenExchange is Ownable, ReentrancyGuard {
      * @param newFee Nuevo fee en porcentaje (0-10%)
      */
     function setPlatformFee(uint256 newFee) external onlyOwner {
-        require(newFee <= 10, "Fee too high (max 10%)");
+        require(newFee <= 1000, "Fee too high (max 10% = 1000 basis points)");
         
         emit PlatformFeeUpdated(platformFee, newFee);
         platformFee = newFee;
