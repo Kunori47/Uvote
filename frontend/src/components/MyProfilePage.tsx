@@ -390,6 +390,42 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
     loadProfile();
   }, [address, isConnected]);
 
+  // Calcular promedio de participantes de todas las predicciones del usuario
+  useEffect(() => {
+    if (!profile || myPredictionsRaw.length === 0) {
+      if (profile) {
+        setProfile({
+          ...profile,
+          averageParticipants: 0,
+        });
+      }
+      return;
+    }
+
+    // Calcular el total de participantes de todas las predicciones
+    let totalParticipants = 0;
+    let predictionsWithParticipants = 0;
+
+    myPredictionsRaw.forEach((pred) => {
+      // Para cada predicción, sumar los totalBettors de todas las opciones
+      const participantsInPrediction = pred.options.reduce((sum, opt) => sum + opt.totalBettors, 0);
+      if (participantsInPrediction > 0) {
+        totalParticipants += participantsInPrediction;
+        predictionsWithParticipants++;
+      }
+    });
+
+    // Calcular el promedio
+    const averageParticipants = predictionsWithParticipants > 0 
+      ? Math.round(totalParticipants / predictionsWithParticipants)
+      : 0;
+
+    setProfile({
+      ...profile,
+      averageParticipants,
+    });
+  }, [myPredictionsRaw, profile]);
+
   // Cargar información de la moneda del creador (si existe) reutilizando el mismo hook que "Mi Moneda"
   useEffect(() => {
     const loadCreatorCoin = async () => {
@@ -692,7 +728,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
             >
               Estadísticas
             </button>
-            <button
+            {/* <button
               onClick={() => setActiveTab("settings")}
               className={`pb-3 px-1 border-b-2 transition-colors ${
                 activeTab === "settings"
@@ -701,7 +737,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
               }`}
             >
               Configuración
-            </button>
+            </button> */}
           </div>
         </div>
 
@@ -892,19 +928,6 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                       )}
                     </div>
                   </div>
-                  <div>
-                    <div className="text-slate-500 text-sm mb-1">
-                      Ratio Engagement
-                    </div>
-                    <div className="text-slate-200 text-xl">
-                      {(
-                        ((profile.averageParticipants || 0) /
-                          profile.followers) *
-                        100
-                      ).toFixed(1)}
-                      %
-                    </div>
-                  </div>
                 </div>
               </div>
 
@@ -953,7 +976,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                 </div>
               )}
 
-              {/* Categories */}
+              {/* Categories - Not implemented yet 
               <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Calendar className="w-5 h-5 text-purple-400" />
@@ -1009,11 +1032,12 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                     </div>
                   </div>
                 </div>
-              </div>
+              </div> */}
             </div>
           </div>
         )}
 
+        {/* Settings - Not implemented yet 
         {activeTab === "settings" && (
           <div className="max-w-3xl">
             <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-6 mb-6">
@@ -1088,10 +1112,10 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
               </div>
             </div>
           </div>
-        )}
+        )} */}
       </div>
 
-      {/* Edit Profile Modal */}
+      {/* Edit Profile Modal - Not implemented yet 
       {isEditingProfile && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-slate-900 border border-slate-800/50 rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -1258,9 +1282,9 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
-      {/* Edit Coin Modal */}
+      {/* Edit Coin Modal - Not implemented yet 
       {isEditingCoin && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-slate-900 border border-slate-800/50 rounded-2xl p-6 max-w-md w-full">
@@ -1341,7 +1365,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 }

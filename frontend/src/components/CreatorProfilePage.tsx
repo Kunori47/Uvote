@@ -464,6 +464,24 @@ export function CreatorProfilePage({
       winRate = Math.round(winRate * 10) / 10;
     }
 
+    // Calcular promedio de participantes de todas las predicciones del creador
+    let totalParticipants = 0;
+    let predictionsWithParticipants = 0;
+
+    creatorPredictions.forEach((pred) => {
+      // Para cada predicción, sumar los totalBettors de todas las opciones
+      const participantsInPrediction = pred.options.reduce((sum, opt) => sum + opt.totalBettors, 0);
+      if (participantsInPrediction > 0) {
+        totalParticipants += participantsInPrediction;
+        predictionsWithParticipants++;
+      }
+    });
+
+    // Calcular el promedio
+    const averageParticipants = predictionsWithParticipants > 0 
+      ? Math.round(totalParticipants / predictionsWithParticipants)
+      : 0;
+
     setCreator((prev) => {
       if (!prev) return prev;
       return {
@@ -471,6 +489,7 @@ export function CreatorProfilePage({
         totalPredictions,
         activePredictions,
         winRate,
+        averageParticipants,
       };
     });
   }, [creatorPredictions, creator]);
@@ -1037,12 +1056,6 @@ export function CreatorProfilePage({
                     <div className="text-slate-500 text-sm mb-1">Promedio Participantes</div>
                     <div className="text-slate-200 text-xl">
                       {formatNumber(creator.averageParticipants || 0)}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-slate-500 text-sm mb-1">Ratio Engagement</div>
-                    <div className="text-slate-200 text-xl">
-                      {((creator.averageParticipants || 0) / creator.followers * 100).toFixed(1)}%
                     </div>
                   </div>
                 </div>
