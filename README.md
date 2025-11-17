@@ -215,6 +215,50 @@ To completely reset your local environment:
 4. Redeploy contracts
 5. Refill your wallet with ETH using the send-eth script
 
+## Unimplemented Features
+
+The following features are planned but not yet implemented:
+
+### Frontend Features
+- **Creator Profile Categories**: Category statistics and distribution charts for creators
+- **Profile Editing**: Ability to edit creator profile information (name, bio, avatar)
+- **Token Management**: Edit existing creator token details
+- **Share Functionality**: Share predictions on social media platforms
+- **Advanced Statistics**: 
+  - Profit/loss calculations based on historical data
+  - Investment tracking and portfolio analytics
+  - Creator performance metrics over time
+- **Creator Verification**: Verification system for creator accounts from CreatorTokenFactory
+- **Notification System**: Real-time notifications for prediction outcomes, new subscriptions, etc.
+- **Advanced Search**: Filter predictions by creator, date range, prize amount
+- **Mobile App**: Native mobile applications for iOS and Android
+
+### Backend Features
+- **Pagination**: Proper pagination for token lists and creator listings
+- **Advanced Analytics**: Comprehensive analytics dashboard for creators and users
+- **API Rate Limiting**: Rate limiting for API endpoints
+- **Caching System**: Redis caching for improved performance
+- **Email Notifications**: Email alerts for prediction outcomes and important events
+
+### Smart Contract Features
+- **Governance**: On-chain governance system for platform decisions
+- **Staking**: Staking mechanism for creators and token holders
+- **Advanced Prediction Types**: Multi-outcome predictions with weighted outcomes
+- **Prediction Templates**: Reusable prediction templates for common use cases
+
+### UI/UX Improvements
+- **Dark Mode**: System-wide dark/light theme toggle
+- **Accessibility**: Full WCAG 2.1 compliance
+- **Internationalization**: Multi-language support (currently only English)
+- **Responsive Design**: Improved mobile and tablet layouts
+- **Loading States**: Better loading indicators and skeleton screens
+
+### Integration Features
+- **External APIs**: Integration with sports APIs, financial data providers
+- **Social Media**: Auto-posting of resolved predictions
+- **Wallet Connect**: Support for WalletConnect protocol
+- **Hardware Wallets**: Support for Ledger and Trezor hardware wallets
+
 ## License
 
 MIT License
