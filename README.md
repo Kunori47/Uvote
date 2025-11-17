@@ -1,6 +1,6 @@
 # Uvote - Decentralized Voting Platform
 
-A decentralized prediction market platform built on Ethereum where creators can create tokens and their followers can participate in prediction markets.
+A decentralized prediction market platform built on Polkadot where creators can create tokens and their followers can participate in prediction markets.
 
 ## 📹 Demo Video
 
@@ -77,12 +77,12 @@ npx hardhat ignition deploy ignition/modules/UvoteSystem.ts --network localhost 
 npm run deploy:ignition
 ```
 
-### 6. Fill Your Wallet with Test ETH
+### 6. Fill Your Wallet with Test DOT
 
-Use the provided script to fill your wallet with test ETH for transactions:
+Use the provided script to fill your wallet with test DOT for transactions:
 
 ```bash
-# Fill a specific wallet address with 100 ETH
+# Fill a specific wallet address with 100 DOT
 npx hardhat run scripts/send-eth.ts --network localhost
 
 # The script will prompt you to enter the wallet address
@@ -90,7 +90,7 @@ npx hardhat run scripts/send-eth.ts --network localhost
 ```
 
 The `scripts/send-eth.ts` script allows you to:
-- Send test ETH to any wallet address
+- Send test DOT to any wallet address
 - Specify the amount to send
 - Use any of the pre-funded accounts from the local node
 
@@ -123,11 +123,11 @@ The frontend will start on `http://localhost:5173`
    - Network Name: Localhost 8545
    - RPC URL: http://localhost:8545
    - Chain ID: 31337
-   - Currency Symbol: ETH
+   - Currency Symbol: ETH # for testing
 
-### Getting Test ETH
+### Getting Test DOT
 
-If your wallet doesn't have enough ETH for transactions:
+If your wallet doesn't have enough DOT for transactions:
 
 1. Copy your wallet address
 2. Run the send-eth script:
@@ -135,7 +135,7 @@ If your wallet doesn't have enough ETH for transactions:
    npx hardhat run scripts/send-eth.ts --network localhost
    ```
 3. Enter your wallet address when prompted
-4. The script will send 100 ETH to your address
+4. The script will send 100 DOT to your address
 
 ### Creating a Creator Token
 
