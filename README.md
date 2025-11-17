@@ -4,9 +4,7 @@ A decentralized prediction market platform built on Polkadot where creators can 
 
 ## 📹 Demo Video
 
-[![Watch the demo](https://img.youtube.com/vi/Y6FiLRq_kL0/0.jpg)](https://youtu.be/Y6FiLRq_kL0)
-
-[![Part 2](https://img.youtube.com/vi/7MTCnSUetiQ/0.jpg)](https://youtu.be/7MTCnSUetiQ)
+[![Watch the demo](https://img.youtube.com/vi/TmKT6njb4ms/0.jpg)](https://www.youtube.com/watch?v=TmKT6njb4ms)
 
 *Click the image above to watch a complete demo of the platform*
 
