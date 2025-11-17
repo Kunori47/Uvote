@@ -1,4 +1,4 @@
-# Uvotechain - Decentralized Voting Platform
+# Uvote - Decentralized Voting Platform
 
 A decentralized prediction market platform built on Ethereum where creators can create tokens and their followers can participate in prediction markets.
 
