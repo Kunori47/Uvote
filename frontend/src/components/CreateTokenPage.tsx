@@ -287,7 +287,7 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
       {/* Info Box */}
       <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
         <h3 className="text-blue-400 font-medium mb-2">📌 Important</h3>
-        <ul className="text-blue-300/80 text-sm space-y-1">
+        <ul className="text-blue-400 text-sm space-y-1">
           <li>• You can only create one creator token per wallet</li>
           <li>• Name and symbol cannot be changed afterwards</li>
           <li>• Initial price can be updated once a month</li>
@@ -361,7 +361,7 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
         {/* Precio Inicial */}
         <div>
           <label className="block text-slate-300 font-medium mb-2">
-            Initial Price (ETH) <span className="text-red-400">*</span>
+            Initial Price (DOT) <span className="text-red-400">*</span>
           </label>
           <input
             type="number"
@@ -409,7 +409,7 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
               <div className="flex-1">
                 <div className="text-slate-100 font-medium">{name}</div>
                 <div className="text-slate-400 text-sm">{symbol}</div>
-                <div className="text-emerald-400 text-sm">{initialPrice} ETH per token</div>
+                <div className="text-emerald-400 text-sm">{initialPrice} DOT per token</div>
                 {description && (
                   <div className="text-slate-500 text-xs mt-2 line-clamp-2">{description}</div>
                 )}

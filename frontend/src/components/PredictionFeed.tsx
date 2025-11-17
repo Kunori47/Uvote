@@ -317,10 +317,15 @@ export function PredictionFeed({ category, onViewPrediction }: PredictionFeedPro
     });
   }, [blockchainPredictions, thumbnails, creatorProfiles, predictionTags, predictionTokenSymbols]);
 
-  // Filter by category (using tags saved in Supabase)
-  const filteredPredictions = useMemo(() => {
-    // If category is 'todos' or 'trending', show all predictions
-    if (category === 'todos' || category === 'trending') {
+  // Show loading if loading predictions OR creator profiles OR token symbols
+  const isLoading = loading || loadingProfiles || loadingTokenSymbols;
+
+  // Display predictions based on category filter
+  const displayPredictions = useMemo(() => {
+    if (isLoading) return [];
+
+    
+    if (category === 'todos' || category === 'trending' || category === 'all') {
       return formattedPredictions;
     }
     
@@ -330,23 +335,15 @@ export function PredictionFeed({ category, onViewPrediction }: PredictionFeedPro
         return true;
       }
       
-      // Also check if any of the prediction's tags match the category
-      const tags = predictionTags[p.id];
-      if (tags && tags.includes(category)) {
+      // Check if category is in tags
+      const tags = predictionTags[p.id] || [];
+      if (tags.includes(category)) {
         return true;
       }
       
       return false;
     });
-  }, [formattedPredictions, category, predictionTags]);
-
-  // Show loading if loading predictions OR creator profiles OR token symbols
-  const isLoading = loading || loadingProfiles || loadingTokenSymbols;
-
-  // Fallback to mocks only if there are no real predictions AND not loading
-  const displayPredictions = !isLoading && filteredPredictions.length > 0 
-    ? filteredPredictions 
-    : (!isLoading && (category === 'todos' || category === 'trending') ? blockchainPredictions : (!isLoading ? blockchainPredictions.filter(p => p.category === category) : []));
+  }, [formattedPredictions, category, predictionTags, isLoading]);
 
   return (
     <div className="p-8">

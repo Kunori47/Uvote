@@ -1,0 +1,100 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { Loader2 } from 'lucide-react';
+import { PredictionCard } from './PredictionCard';
+import { usePredictions } from '../hooks/usePredictions';
+import { apiService } from '../lib/apiService';
+import { CONTRACT_ADDRESSES, NETWORK_CONFIG } from '../lib/contracts';
+import { predictionMarketService, creatorTokenService } from '../lib/contractService';
+
+interface PredictionOption {
+  id: string;
+  label: string;
+  votes: number;
+}
+
+interface Prediction {
+  id: string;
+  creator: {
+    name: string;
+    avatar: string;
+    verified: boolean;
+  };
+  question: string;
+  category: string;
+  totalPool: number;
+  options: PredictionOption[];
+  endDate: string;
+  thumbnail: string;
+}
+
+interface PredictionFeedProps {
+  category: string;
+  onViewPrediction?: (id: string) => void;
+}
+
+export function PredictionFeed({ category, onViewPrediction }: PredictionFeedProps) {
+  const { predictions: blockchainPredictions, loading, error } = usePredictions();
+  const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
+  const [predictionTags, setPredictionTags] = useState<Record<string, string[]>>({});
+  const [creatorProfiles, setCreatorProfiles] = useState<Record<string, {
+    displayName: string;
+    avatarUrl: string;
+  }>>({});
+  const [predictionTokenSymbols, setPredictionTokenSymbols] = useState<Record<string, string>>({});
+  const [loadingProfiles, setLoadingProfiles] = useState(false);
+  const [loadingTokenSymbols, setLoadingTokenSymbols] = useState(false);
+
+  // Load images and tags from Supabase for each prediction
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadImagesAndTags = async () => {
+      if (!blockchainPredictions || blockchainPredictions.length === 0) {
+        setThumbnails({});
+        setPredictionTags({});
+        return;
+      }
+
+      try {
+        const imageEntries: Array<[string, string]> = [];
+        const tagEntries: Array<[string, string[]]> = [];
+
+        await Promise.all(
+          blockchainPredictions.map(async (pred) => {
+            const img = await apiService.getPredictionImage(
+              pred.id,
+              CONTRACT_ADDRESSES.PredictionMarket,
+              NETWORK_CONFIG.chainId
+            );
+            if (img) {
+              if (img.image_url) {
+                imageEntries.push([pred.id, img.image_url as string]);
+              }
+              // Load tags if they exist
+              if (img.tags && Array.isArray(img.tags) && img.tags.length > 0) {
+                tagEntries.push([pred.id, img.tags as string[]]);
+              }
+            }
+          })
+        );
+
+        if (!cancelled) {
+          const imageMap: Record<string, string> = {};
+          for (const [id, url] of imageEntries) {
+            imageMap[id] = url;
+          }
+          setThumbnails(imageMap);
+
+          const tagMap: Record<string, string[]> = {};
+          for (const [id, tags] of tagEntries) {
+            tagMap[id] = tags;
+          }
+          setPredictionTags(tagMap);
+        }
+      } catch (e) {
+        console.error('Error loading prediction thumbnails and tags:', e);
+      }
+    };
+
+    loadImagesAndTags();
+

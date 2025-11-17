@@ -2,6 +2,12 @@
 
 A decentralized prediction market platform built on Ethereum where creators can create tokens and their followers can participate in prediction markets.
 
+## 📹 Demo Video
+
+[![Watch the demo](./video/タイトル未定.mp4)](./video/Desktop%202025.11.17%20-%2011.52.55.12.mp4)
+
+*Click the image above to watch a complete demo of the platform*
+
 ## Prerequisites
 
 - Node.js (v18 or higher)
@@ -64,7 +70,9 @@ In a new terminal window (while the local node is running):
 
 ```bash
 # Deploy contracts to local network
-npx hardhat ignition deploy ignition/modules/UvoteSystem.ts --network localhost
+npx hardhat ignition deploy ignition/modules/UvoteSystem.ts --network localhost && npm run sync:addresses
+# or
+npm run deploy:ignitionhttp://localhost:3000/
 ```
 
 ### 6. Fill Your Wallet with Test ETH

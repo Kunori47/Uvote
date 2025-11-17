@@ -11,7 +11,7 @@ interface CoinDetailPageProps {
 }
 
 export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
-  const { address, balance, isConnected } = useWallet();
+  const { address, balance, isConnected, refreshBalance } = useWallet();
   
   // Token info
   const [tokenInfo, setTokenInfo] = useState<any>(null);
@@ -210,18 +210,43 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
       
       // 2. Sell tokens
       console.log('   Selling tokens...');
-      await tokenExchangeService.sellTokens(coinId, amount);
+      const sellReceipt = await tokenExchangeService.sellTokens(coinId, amount);
+      console.log('   ✅ Sell transaction confirmed:', sellReceipt.hash);
 
       setActionSuccess(true);
       setAmount('');
       
+      // Wait a bit for blockchain to update, then reload balance
+      setTimeout(async () => {
+        if (address) {
+          try {
+            console.log('   🔄 Reloading token balance after sell...');
+            const newBalance = await creatorTokenService.getBalance(coinId, address);
+            console.log('   ✅ New token balance:', newBalance);
+            setUserBalance(newBalance);
+            
+            // Also refresh DOT/ETH balance since user received ETH from selling
+            console.log('   💰 Refreshing DOT/ETH balance after sell...');
+            await refreshBalance();
+          } catch (err) {
+            console.error('Error reloading balance after sell:', err);
+          }
+        }
+      }, 1000); // Wait 1 second for blockchain state to update
+      
       setTimeout(() => {
         setActionSuccess(false);
-        // Reload balance
+        // Final balance check after more time
         if (address) {
-          creatorTokenService.getBalance(coinId, address).then(setUserBalance);
+          creatorTokenService.getBalance(coinId, address).then(balance => {
+            console.log('   🔍 Final token balance check:', balance);
+            setUserBalance(balance);
+          });
+          
+          // Final DOT/ETH balance refresh
+          refreshBalance();
         }
-      }, 2000);
+      }, 3000);
     } catch (err: any) {
       console.error('Error selling tokens:', err);
       setActionError(err.message || 'Error selling tokens');

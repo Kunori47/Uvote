@@ -1,6 +1,11 @@
 import { ethers } from "ethers";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+
+// Get __dirname equivalent in ES module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Script para sincronizar automáticamente las direcciones de contratos
@@ -12,7 +17,7 @@ async function syncContractAddresses() {
 
   try {
     // Obtener las direcciones del deployment más reciente
-    const deploymentPath = path.join(__dirname, "../ignition/deployments/chain-31337/deployed-chains.json");
+    const deploymentPath = path.join(__dirname, "../ignition/deployments/chain-31337/deployed_addresses.json");
     
     if (!fs.existsSync(deploymentPath)) {
       console.error("❌ No se encontró el archivo de deployment. Ejecuta primero el deployment.");
@@ -20,7 +25,7 @@ async function syncContractAddresses() {
     }
 
     const deploymentData = JSON.parse(fs.readFileSync(deploymentPath, "utf8"));
-    const contracts = deploymentData["UvoteSystem"];
+    const contracts = deploymentData;
     
     if (!contracts) {
       console.error("❌ No se encontró el deployment de UvoteSystem");
@@ -29,9 +34,9 @@ async function syncContractAddresses() {
 
     // Extraer direcciones
     const addresses = {
-      CreatorTokenFactory: contracts["CreatorTokenFactory"].address,
-      PredictionMarket: contracts["PredictionMarket"].address,
-      TokenExchange: contracts["TokenExchange"].address,
+      CreatorTokenFactory: contracts["UvoteSystem#CreatorTokenFactory"],
+      PredictionMarket: contracts["UvoteSystem#PredictionMarket"],
+      TokenExchange: contracts["UvoteSystem#TokenExchange"],
     };
 
     console.log("📍 Direcciones encontradas:");
