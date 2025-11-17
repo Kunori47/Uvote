@@ -6,7 +6,7 @@ import { predictionMarketService, factoryService } from '../lib/contractService'
 import { CONTRACT_ADDRESSES, NETWORK_CONFIG, getSigner } from '../lib/contracts';
 import { apiService, generateAuthToken } from '../lib/apiService';
 
-// Categorías disponibles (mismo que Categories.tsx)
+// Available categories (same as Categories.tsx)
 const availableTags = [
   { id: 'gaming', label: 'Gaming', emoji: '🎮' },
   { id: 'crypto', label: 'Crypto', emoji: '₿' },
@@ -29,32 +29,32 @@ interface CreatePredictionPageProps {
 export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPageProps) {
   const { address, isConnected } = useWallet();
   
-  // Estados del formulario
+  // Form states
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [options, setOptions] = useState<string[]>(['', '']);
-  const [duration, setDuration] = useState('24'); // horas
-  const [noTimeLimit, setNoTimeLimit] = useState(false); // predicción indefinida
-  const [selectedTags, setSelectedTags] = useState<string[]>([]); // Tags seleccionados
+  const [duration, setDuration] = useState('24'); // hours
+  const [noTimeLimit, setNoTimeLimit] = useState(false); // indefinite prediction
+  const [selectedTags, setSelectedTags] = useState<string[]>([]); // Selected tags
   
-  // Estados de la UI
+  // UI states
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [createdPredictionId, setCreatedPredictionId] = useState<string | null>(null);
 
-  // Imagen de la predicción
+  // Prediction image
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   
-  // Token del creador
+  // Creator token
   const [creatorToken, setCreatorToken] = useState<string | null>(null);
   const [loadingToken, setLoadingToken] = useState(false);
 
-  // Cargar el token del creador al conectar
+  // Load creator token when connecting
   useEffect(() => {
     const loadCreatorToken = async () => {
       if (!address || !isConnected) {
@@ -69,11 +69,11 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
           setCreatorToken(tokenAddress);
         } else {
           setCreatorToken(null);
-          setError('No tienes un token de creador. Debes crear uno primero.');
+          setError('You don\'t have a creator token. You must create one first.');
         }
       } catch (err) {
-        console.error('Error cargando token del creador:', err);
-        setError('Error al verificar tu token de creador');
+        console.error('Error loading creator token:', err);
+        setError('Error verifying your creator token');
       } finally {
         setLoadingToken(false);
       }
@@ -103,28 +103,28 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
   const handleCreate = async () => {
     if (!creatorToken || !address) return;
     
-    // Validaciones
+    // Validations
     if (!title.trim()) {
-      setError('El título es requerido');
+      setError('Title is required');
       return;
     }
     
     if (!description.trim()) {
-      setError('La descripción es requerida');
+      setError('Description is required');
       return;
     }
     
     const filledOptions = options.filter(opt => opt.trim() !== '');
     if (filledOptions.length < 2) {
-      setError('Debes tener al menos 2 opciones');
+      setError('You must have at least 2 options');
       return;
     }
     
-    // Validar duración solo si no es indefinida
+    // Validate duration only if not indefinite
     if (!noTimeLimit) {
       const durationNum = parseFloat(duration);
       if (isNaN(durationNum) || durationNum < 0.0167 || durationNum > 8760) { // min 1 min, max 1 año
-        setError('La duración debe ser entre 1 minuto y 1 año');
+        setError('Duration must be between 1 minute and 1 year');
         return;
       }
     }
@@ -134,7 +134,7 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
       setError(null);
       setImageError(null);
 
-      // 1) Subir imagen si el usuario seleccionó una y aún no la subimos
+      // 1) Upload image if user selected one and we haven't uploaded it yet
       let finalImageUrl: string | null = imageUrl;
       if (imageFile && !finalImageUrl) {
         try {
@@ -142,7 +142,7 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
           const signer = await getSigner();
           const authToken = await generateAuthToken(address, signer);
 
-          // Usamos el tipo 'prediction' para que vaya a la carpeta de predicciones
+          // We use 'prediction' type to go to predictions folder
           const uploadResult = await apiService.uploadImage(
             imageFile,
             'prediction',
@@ -151,8 +151,8 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
           finalImageUrl = uploadResult.url;
           setImageUrl(uploadResult.url);
         } catch (uploadError: any) {
-          console.error('Error subiendo imagen de predicción:', uploadError);
-          setImageError(uploadError?.message || 'Error al subir la imagen de la predicción');
+          console.error('Error uploading prediction image:', uploadError);
+          setImageError(uploadError?.message || 'Error uploading prediction image');
           setIsCreating(false);
           setIsUploadingImage(false);
           return;
@@ -161,16 +161,16 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
         }
       }
       
-      // 2) Convertir duración de horas a segundos (0 si es indefinida)
+      // 2) Convert duration from hours to seconds (0 if indefinite)
       const durationInSeconds = noTimeLimit ? 0 : Math.floor(parseFloat(duration) * 3600);
       
-      console.log('🎯 Creando predicción...');
+      console.log('🎯 Creating prediction...');
       console.log('   Token:', creatorToken);
-      console.log('   Título:', title);
-      console.log('   Opciones:', filledOptions);
-      console.log('   Duración:', durationInSeconds, 'segundos');
+      console.log('   Title:', title);
+      console.log('   Options:', filledOptions);
+      console.log('   Duration:', durationInSeconds, 'seconds');
       if (finalImageUrl) {
-        console.log('   Imagen URL:', finalImageUrl);
+        console.log('   Image URL:', finalImageUrl);
       }
       
       const result = await predictionMarketService.createPrediction(
@@ -184,8 +184,8 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
       setSuccess(true);
       setCreatedPredictionId(result.predictionId);
       
-      // Guardar referencia de imagen de predicción y tags (siempre se guarda, con o sin imagen)
-      // Solo guardar si hay imagen O tags
+      // Save prediction image reference and tags (always saved, with or without image)
+      // Save only if there is image OR tags
       if (finalImageUrl || selectedTags.length > 0) {
         try {
           const signer = await getSigner();
@@ -203,12 +203,12 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
             authToken
           );
         } catch (metaError) {
-          console.error('Error guardando metadata de predicción:', metaError);
-          // No bloqueamos el flujo principal si solo falla la metadata
+          console.error('Error saving prediction metadata:', metaError);
+          // Don't block main flow if only metadata fails
         }
       }
       
-      // Limpiar formulario después de 2 segundos / navegar al detalle
+      // Clear form after 2 seconds / navigate to detail
       setTimeout(() => {
         if (result.predictionId && onCreated) {
           onCreated(result.predictionId);
@@ -217,8 +217,8 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
         }
       }, 2000);
     } catch (err: any) {
-      console.error('Error creando predicción:', err);
-      setError(err.message || 'Error al crear la predicción');
+      console.error('Error creating prediction:', err);
+      setError(err.message || 'Error creating prediction');
     } finally {
       setIsCreating(false);
     }
@@ -229,13 +229,13 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
       <div className="p-6 max-w-4xl mx-auto">
         <div className="flex flex-col items-center justify-center py-20">
           <AlertCircle className="w-16 h-16 text-yellow-400 mb-4" />
-          <h2 className="text-2xl font-bold text-slate-100 mb-2">Wallet no conectada</h2>
-          <p className="text-slate-400 mb-6">Conecta tu wallet para crear predicciones</p>
+          <h2 className="text-2xl font-bold text-slate-100 mb-2">Wallet not connected</h2>
+          <p className="text-slate-400 mb-6">Connect your wallet to create predictions</p>
           <button
             onClick={onBack}
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors"
           >
-            Volver
+            Back
           </button>
         </div>
       </div>
@@ -247,7 +247,7 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
       <div className="p-6 max-w-4xl mx-auto">
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mb-4" />
-          <p className="text-slate-400">Verificando tu token de creador...</p>
+          <p className="text-slate-400">Verifying your creator token...</p>
         </div>
       </div>
     );
@@ -258,13 +258,13 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
       <div className="p-6 max-w-4xl mx-auto">
         <div className="flex flex-col items-center justify-center py-20">
           <AlertCircle className="w-16 h-16 text-red-400 mb-4" />
-          <h2 className="text-2xl font-bold text-slate-100 mb-2">No tienes un token de creador</h2>
-          <p className="text-slate-400 mb-6">Debes crear un token de creador antes de poder crear predicciones</p>
+          <h2 className="text-2xl font-bold text-slate-100 mb-2">You don't have a creator token</h2>
+          <p className="text-slate-400 mb-6">You must create a creator token before you can create predictions</p>
           <button
             onClick={onBack}
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors"
           >
-            Volver
+            Back
           </button>
         </div>
       </div>
@@ -280,11 +280,11 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
           className="flex items-center gap-2 text-slate-400 hover:text-emerald-400 transition-colors mb-4"
         >
           <ArrowLeft className="w-5 h-5" />
-          Volver
+          Back
         </button>
         
-        <h1 className="text-3xl font-bold text-slate-100 mb-2">Crear Nueva Predicción</h1>
-        <p className="text-slate-400">Crea una predicción para que tus seguidores participen</p>
+        <h1 className="text-3xl font-bold text-slate-100 mb-2">Create New Prediction</h1>
+        <p className="text-slate-400">Create a prediction for your followers to participate in</p>
       </div>
 
       {/* Success Message */}
@@ -292,7 +292,7 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
         <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex items-center gap-3">
           <CheckCircle2 className="w-6 h-6 text-green-400 flex-shrink-0" />
           <div>
-            <p className="text-green-400 font-medium">¡Predicción creada exitosamente!</p>
+            <p className="text-green-400 font-medium">Prediction created successfully!</p>
             {createdPredictionId && (
               <p className="text-green-400/70 text-sm">ID: {createdPredictionId}</p>
             )}
@@ -310,45 +310,45 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
 
       {/* Form */}
       <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6 space-y-6">
-        {/* Título */}
+        {/* Title */}
         <div>
           <label className="block text-slate-300 font-medium mb-2">
-            Título de la predicción <span className="text-red-400">*</span>
+            Prediction Title <span className="text-red-400">*</span>
           </label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="¿Qué predicción quieres crear?"
+            placeholder="What prediction do you want to create?"
             maxLength={200}
             className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
           />
-          <p className="text-slate-500 text-xs mt-1">{title.length}/200 caracteres</p>
+          <p className="text-slate-500 text-xs mt-1">{title.length}/200 characters</p>
         </div>
 
-        {/* Descripción */}
+        {/* Description */}
         <div>
           <label className="block text-slate-300 font-medium mb-2">
-            Descripción <span className="text-red-400">*</span>
+            Description <span className="text-red-400">*</span>
           </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Explica los detalles de tu predicción..."
+            placeholder="Explain the details of your prediction..."
             maxLength={1000}
             rows={4}
             className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none resize-none"
           />
-          <p className="text-slate-500 text-xs mt-1">{description.length}/1000 caracteres</p>
+          <p className="text-slate-500 text-xs mt-1">{description.length}/1000 characters</p>
         </div>
 
-        {/* Imagen de la predicción (opcional) */}
+        {/* Prediction Image (optional) */}
         <div>
           <label className="block text-slate-300 font-medium mb-2">
-            Imagen de la predicción (opcional)
+            Prediction Image (optional)
           </label>
           <p className="text-slate-500 text-sm mb-3">
-            Esta imagen se mostrará como banner en el detalle de la predicción.
+            This image will be displayed as a banner in the prediction details.
           </p>
           <div className="flex items-center gap-4">
             <div className="w-24 h-24 rounded-xl overflow-hidden bg-slate-800 border border-slate-700 flex items-center justify-center text-xs text-slate-500">
@@ -359,7 +359,7 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span>Sin imagen</span>
+                <span>No image</span>
               )}
             </div>
             <div className="flex flex-col gap-1">
@@ -385,7 +385,7 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
                 <p className="mt-1 text-xs text-red-400">{imageError}</p>
               )}
               <p className="text-[11px] text-slate-500">
-                Recomendado: imagen horizontal, máximo ~2MB.
+                Recommended: horizontal image, max ~2MB.
               </p>
             </div>
           </div>
@@ -394,10 +394,10 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
         {/* Tags */}
         <div>
           <label className="block text-slate-300 font-medium mb-2">
-            Tags (opcional)
+            Tags (optional)
           </label>
           <p className="text-slate-500 text-sm mb-3">
-            Selecciona uno o más tags para categorizar tu predicción
+            Select one or more tags to categorize your prediction
           </p>
           <div className="flex flex-wrap gap-2">
             {availableTags.map((tag) => {
@@ -431,17 +431,17 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
           </div>
           {selectedTags.length > 0 && (
             <p className="text-slate-400 text-xs mt-2">
-              {selectedTags.length} tag{selectedTags.length > 1 ? 's' : ''} seleccionado{selectedTags.length > 1 ? 's' : ''}
+              {selectedTags.length} tag{selectedTags.length > 1 ? 's' : ''} selected
             </p>
           )}
         </div>
 
-        {/* Opciones */}
+        {/* Options */}
         <div>
           <label className="block text-slate-300 font-medium mb-2">
-            Opciones <span className="text-red-400">*</span>
+            Options <span className="text-red-400">*</span>
           </label>
-          <p className="text-slate-500 text-sm mb-3">Mínimo 2 opciones, máximo 10</p>
+          <p className="text-slate-500 text-sm mb-3">Minimum 2 options, maximum 10</p>
           
           <div className="space-y-3">
             {options.map((option, index) => (
@@ -450,7 +450,7 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
                   type="text"
                   value={option}
                   onChange={(e) => updateOption(index, e.target.value)}
-                  placeholder={`Opción ${index + 1}`}
+                  placeholder={`Option ${index + 1}`}
                   maxLength={100}
                   className="flex-1 px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
                 />
@@ -472,14 +472,14 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
               className="mt-3 flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 rounded-lg transition-colors"
             >
               <Plus className="w-5 h-5" />
-              Agregar Opción
+              Add Option
             </button>
           )}
         </div>
 
-        {/* Configuración */}
+        {/* Configuration */}
         <div className="pt-6 border-t border-slate-800">
-          {/* Sin tiempo límite */}
+          {/* No time limit */}
           <div className="mb-6">
             <label className="flex items-center gap-3 cursor-pointer">
               <input
@@ -489,19 +489,19 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
                 className="w-5 h-5 rounded border-slate-700 bg-slate-800 text-emerald-600 focus:ring-emerald-500 focus:ring-2"
               />
               <div>
-                <span className="text-slate-300 font-medium">Sin tiempo límite (indefinida)</span>
+                <span className="text-slate-300 font-medium">No time limit (indefinite)</span>
                 <p className="text-slate-500 text-xs mt-1">
-                  La predicción no expirará automáticamente. Solo tú podrás cerrarla manualmente cuando lo decidas.
+                  The prediction will not expire automatically. Only you can close it manually when you decide.
                 </p>
               </div>
             </label>
           </div>
 
-          {/* Duración */}
+          {/* Duration */}
           {!noTimeLimit && (
             <div>
               <label className="block text-slate-300 font-medium mb-2">
-                Duración (horas) <span className="text-red-400">*</span>
+                Duration (hours) <span className="text-red-400">*</span>
               </label>
               <input
                 type="number"
@@ -513,7 +513,7 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
                 step="1"
                 className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
               />
-              <p className="text-slate-500 text-xs mt-1">Entre 1 minuto (0.0167) y 1 año (8760)</p>
+              <p className="text-slate-500 text-xs mt-1">Between 1 minute (0.0167) and 1 year (8760)</p>
             </div>
           )}
         </div>
@@ -528,24 +528,24 @@ export function CreatePredictionPage({ onBack, onCreated }: CreatePredictionPage
             {isCreating ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                Creando Predicción...
+                Creating Prediction...
               </>
             ) : success ? (
               <>
                 <CheckCircle2 className="w-5 h-5" />
-                ¡Predicción Creada!
+                Prediction Created!
               </>
             ) : (
               <>
                 <Plus className="w-5 h-5" />
-                Crear Predicción
+                Create Prediction
               </>
             )}
           </button>
           
           {!success && (
             <p className="text-slate-500 text-xs text-center mt-3">
-              Se requerirá una transacción para crear la predicción
+              A transaction will be required to create the prediction
             </p>
           )}
         </div>

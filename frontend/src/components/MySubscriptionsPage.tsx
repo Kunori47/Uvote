@@ -21,10 +21,10 @@ interface SubscriptionDisplay {
 type SortOption = 'name-asc' | 'name-desc' | 'date-desc' | 'date-asc';
 
 const sortOptions = [
-  { id: 'name-asc' as SortOption, label: 'Nombre A-Z' },
-  { id: 'name-desc' as SortOption, label: 'Nombre Z-A' },
-  { id: 'date-desc' as SortOption, label: 'Seguidos recientemente' },
-  { id: 'date-asc' as SortOption, label: 'Seguidos primero' },
+  { id: 'name-asc' as SortOption, label: 'Name A-Z' },
+  { id: 'name-desc' as SortOption, label: 'Name Z-A' },
+  { id: 'date-desc' as SortOption, label: 'Recently followed' },
+  { id: 'date-asc' as SortOption, label: 'Followed first' },
 ];
 
 interface MySubscriptionsPageProps {
@@ -43,16 +43,16 @@ export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps)
   const [creatorTokenInfo, setCreatorTokenInfo] = useState<Record<string, { name: string; symbol: string }>>({});
   const [loadingTokenInfo, setLoadingTokenInfo] = useState(false);
 
-  // Transformar subscriptions del backend a formato display
+  // Transform backend subscriptions to display format
   const subscriptions: SubscriptionDisplay[] = rawSubscriptions.map((sub) => {
     const creator = sub.creator;
     const creatorName = creator?.display_name || creator?.username || `${sub.creator_address.slice(0, 6)}...${sub.creator_address.slice(-4)}`;
     const creatorAvatar = creator?.profile_image_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${sub.creator_address}`;
     
-    // Verificar si el usuario tiene tokens de este creador
+    // Check if user has tokens from this creator
     const userToken = userTokens.find(t => t.creatorAddress.toLowerCase() === sub.creator_address.toLowerCase());
     
-    // Obtener información de la moneda del creador
+    // Get creator coin information
     const tokenInfo = creatorTokenInfo[sub.creator_address.toLowerCase()];
     
     return {
@@ -60,7 +60,7 @@ export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps)
       creatorAddress: sub.creator_address,
       creatorName,
       creatorAvatar,
-      followedSince: new Date(sub.created_at).toLocaleDateString('es-ES'),
+      followedSince: new Date(sub.created_at).toLocaleDateString('en-US'),
       hasCreatorCoin: !!userToken,
       coinBalance: userToken?.balance,
       coinName: tokenInfo?.name,
@@ -68,7 +68,7 @@ export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps)
     };
   });
 
-  // Cargar información de tokens de creadores
+  // Load creator token information
   useEffect(() => {
     const loadCreatorTokenInfo = async () => {
       if (!rawSubscriptions || rawSubscriptions.length === 0) {
@@ -84,10 +84,10 @@ export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps)
         await Promise.all(
           rawSubscriptions.map(async (sub) => {
             try {
-              // Intentar obtener el token del creador
+              // Try to get the creator token
               const tokenAddress = await factoryService.getCreatorToken(sub.creator_address);
               if (tokenAddress && tokenAddress !== '0x0000000000000000000000000000000000000000') {
-                // Obtener información del token
+                // Get token information
                 const tokenInfo = await creatorTokenService.getTokenInfo(tokenAddress);
                 tokenInfoMap[sub.creator_address.toLowerCase()] = {
                   name: tokenInfo.name,
@@ -95,8 +95,8 @@ export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps)
                 };
               }
             } catch (err) {
-              // Si el creador no tiene token, simplemente no agregamos información
-              // Esto es esperado para creadores que aún no han creado su moneda
+              // If creator doesn't have token, just don't add information
+              // This is expected for creators who haven't created their coin yet
               console.log(`Creator ${sub.creator_address} does not have a token yet`);
             }
           })
@@ -119,9 +119,9 @@ export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps)
     withCoins: subscriptions.filter(s => s.hasCreatorCoin).length,
   };
 
-  // Desuscribirse
+  // Unsubscribe
   const handleUnsubscribe = async (creatorAddress: string, creatorName: string) => {
-    if (!confirm(`¿Estás seguro de que quieres dejar de seguir a ${creatorName}?`)) {
+    if (!confirm(`Are you sure you want to unfollow ${creatorName}?`)) {
       return;
     }
     
@@ -129,22 +129,22 @@ export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps)
       setUnsubscribingId(creatorAddress);
       await unsubscribeApi(creatorAddress);
       
-      // Recargar la lista de suscripciones después de desuscribirse exitosamente
+      // Reload subscriptions list after successful unsubscribe
       await refetch();
     } catch (err: any) {
-      // Si el error es "Subscription not found", significa que ya se eliminó exitosamente
-      // Esto puede pasar si el backend retorna 404 después de eliminar
+      // If error is "Subscription not found", it means it was already successfully deleted
+      // This can happen if backend returns 404 after deletion
       if (err.message?.toLowerCase().includes('subscription not found') || 
-          err.message?.toLowerCase().includes('no encontrada') ||
+          err.message?.toLowerCase().includes('not found') ||
           err.message?.toLowerCase().includes('not found')) {
-        console.log('Suscripción ya eliminada, recargando lista...');
-        // Recargar la lista de todas formas
+        console.log('Subscription already deleted, reloading list...');
+        // Reload list anyway
         await refetch();
         return;
       }
       
       console.error('Error unsubscribing:', err);
-      alert(err.message || 'Error al desuscribirse');
+      alert(err.message || 'Error unsubscribing');
     } finally {
       setUnsubscribingId(null);
     }
@@ -176,7 +176,7 @@ export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps)
     <div className="p-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-100 mb-6">Mis Suscripciones</h1>
+        <h1 className="text-3xl font-bold text-slate-100 mb-6">My Subscriptions</h1>
 
         {/* Stats */}
         {isConnected && !loading && (
@@ -184,14 +184,14 @@ export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps)
             <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-1">
                 <Users className="w-4 h-4 text-emerald-400" />
-                <span className="text-slate-400 text-sm">Creadores seguidos</span>
+                <span className="text-slate-400 text-sm">Followed creators</span>
               </div>
               <p className="text-2xl font-bold text-slate-100">{stats.totalSubscriptions}</p>
             </div>
             <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-1">
                 <TrendingUp className="w-4 h-4 text-emerald-400" />
-                <span className="text-slate-400 text-sm">Con monedas</span>
+                <span className="text-slate-400 text-sm">With coins</span>
               </div>
               <p className="text-2xl font-bold text-slate-100">{stats.withCoins}</p>
             </div>
@@ -259,12 +259,12 @@ export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps)
         {!isConnected ? (
           <div className="text-center py-12">
             <Wallet className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-            <p className="text-slate-400">Conecta tu wallet para ver tus suscripciones</p>
+            <p className="text-slate-400">Connect your wallet to see your subscriptions</p>
           </div>
         ) : loading ? (
           <div className="text-center py-12">
             <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mx-auto mb-4" />
-            <p className="text-slate-400">Cargando suscripciones...</p>
+            <p className="text-slate-400">Loading subscriptions...</p>
           </div>
         ) : error ? (
           <div className="text-center py-12">
@@ -274,10 +274,10 @@ export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps)
           <div className="text-center py-12">
             <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
             <p className="text-slate-400 mb-2">
-              {searchQuery ? 'No se encontraron creadores' : 'No sigues a ningún creador aún'}
+              {searchQuery ? 'No creators found' : 'You don\'t follow any creators yet'}
             </p>
             {!searchQuery && (
-              <p className="text-slate-500 text-sm">Explora predicciones y sigue a tus creadores favoritos</p>
+              <p className="text-slate-500 text-sm">Explore predictions and follow your favorite creators</p>
             )}
           </div>
         ) : (
@@ -319,7 +319,7 @@ export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps)
                     )}
                   </div>
                   <div className="flex items-center gap-2 text-slate-500 text-sm">
-                    <span>Siguiendo desde {sub.followedSince}</span>
+                    <span>Following since {sub.followedSince}</span>
                   </div>
                 </div>
 
@@ -336,12 +336,12 @@ export function MySubscriptionsPage({ onViewCreator }: MySubscriptionsPageProps)
                     {unsubscribingId === sub.creatorAddress ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Cancelando...
+                        Canceling...
                       </>
                     ) : (
                       <>
                         <UserMinus className="w-4 h-4" />
-                        Dejar de seguir
+                        Unfollow
                       </>
                     )}
                   </button>

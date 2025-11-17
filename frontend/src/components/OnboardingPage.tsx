@@ -45,7 +45,7 @@ export function OnboardingPage({ onCompleted, onBack }: OnboardingPageProps) {
 
   const validate = (): boolean => {
     if (mode === "signin") {
-      // En modo inicio de sesión no validamos datos de perfil
+      // In login mode we don't validate profile data
       setErrors({});
       return true;
     }
@@ -53,10 +53,10 @@ export function OnboardingPage({ onCompleted, onBack }: OnboardingPageProps) {
     const nextErrors: FormErrors = {};
 
     if (!form.username.trim()) {
-      nextErrors.username = "El nombre de usuario es obligatorio";
+      nextErrors.username = "Username is required";
     }
     if (!form.displayName.trim()) {
-      nextErrors.displayName = "El nombre visible es obligatorio";
+      nextErrors.displayName = "Display name is required";
     }
 
     setErrors(nextErrors);
@@ -71,20 +71,20 @@ export function OnboardingPage({ onCompleted, onBack }: OnboardingPageProps) {
       setLoading(true);
       setErrors({});
 
-      // 1) Conectar wallet
+      // 1) Connect wallet
       await connect();
 
-      // 2) Obtener signer y dirección
+      // 2) Get signer and address
       const signer = await getSigner();
       const addr = await signer.getAddress();
 
       if (mode === "signin") {
-        // MODO LOGIN: solo verificamos que el usuario exista
+        // LOGIN MODE: we only verify that the user exists
         const existing = await apiService.getUser(addr);
         if (!existing) {
           setErrors({
             global:
-              "No encontramos un perfil asociado a esta wallet. Crea una cuenta nueva.",
+              "We didn't find a profile associated with this wallet. Create a new account.",
           });
           setLoading(false);
           return;
@@ -98,7 +98,7 @@ export function OnboardingPage({ onCompleted, onBack }: OnboardingPageProps) {
 
       const authToken = await generateAuthToken(addr, signer);
 
-      // 3) Subir imagen de perfil (si hay)
+      // 3) Upload profile image (if any)
       let profileImageUrl: string | undefined = undefined;
       if (imageFile) {
         try {
@@ -109,19 +109,19 @@ export function OnboardingPage({ onCompleted, onBack }: OnboardingPageProps) {
           );
           profileImageUrl = uploadResult.url;
         } catch (uploadError: any) {
-          console.error("Error subiendo imagen de perfil:", uploadError);
+          console.error("Error uploading profile image:", uploadError);
           setErrors((prev) => ({
             ...prev,
             image:
               uploadError?.message ||
-              "Error al subir la imagen de perfil. Intenta con otra imagen.",
+              "Error uploading profile image. Try with another image.",
           }));
           setLoading(false);
           return;
         }
       }
 
-      // 4) Crear/actualizar usuario (sign up)
+      // 4) Create/update user (sign up)
       await apiService.upsertUser(
         {
           username: form.username.trim(),
@@ -137,10 +137,10 @@ export function OnboardingPage({ onCompleted, onBack }: OnboardingPageProps) {
         onCompleted();
       }
     } catch (e: any) {
-      console.error("Error en onboarding:", e);
+      console.error("Error in onboarding:", e);
       setErrors((prev) => ({
         ...prev,
-        global: e?.message || "Error al conectar wallet o crear usuario",
+        global: e?.message || "Error connecting wallet or creating user",
       }));
     } finally {
       setLoading(false);
@@ -156,17 +156,17 @@ export function OnboardingPage({ onCompleted, onBack }: OnboardingPageProps) {
             onClick={onBack}
             className="mb-6 text-sm text-slate-400 hover:text-slate-200"
           >
-            ← Volver al inicio
+            ← Back to home
           </button>
         )}
 
         <h1 className="text-2xl font-semibold text-white mb-2">
-          {mode === "signup" ? "Crea tu perfil en Uvote" : "Inicia sesión en Uvote"}
+          {mode === "signup" ? "Create your profile on Uvote" : "Sign in to Uvote"}
         </h1>
         <p className="text-sm text-slate-400 mb-4">
           {mode === "signup"
-            ? "Antes de conectar tu wallet necesitamos algunos datos básicos para tu cuenta. Estos datos, junto con tu foto de perfil (opcional), se guardarán asociados a la dirección de tu wallet."
-            : "Si ya creaste tu cuenta antes, solo conecta la misma wallet para continuar donde lo dejaste."}
+            ? "Before connecting your wallet we need some basic data for your account. This data, along with your profile photo (optional), will be saved associated with your wallet address."
+            : "If you already created your account before, just connect the same wallet to continue where you left off."}
         </p>
 
         <div className="inline-flex items-center gap-2 mb-6 rounded-full bg-slate-900/60 border border-slate-800 p-1">
@@ -182,7 +182,7 @@ export function OnboardingPage({ onCompleted, onBack }: OnboardingPageProps) {
                 : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            Crear cuenta
+            Create account
           </button>
           <button
             type="button"
@@ -196,7 +196,7 @@ export function OnboardingPage({ onCompleted, onBack }: OnboardingPageProps) {
                 : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            Ya tengo cuenta
+            I already have an account
           </button>
         </div>
 
@@ -211,7 +211,7 @@ export function OnboardingPage({ onCompleted, onBack }: OnboardingPageProps) {
             <>
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-2">
-                  Foto de perfil (opcional)
+                  Profile photo (optional)
                 </label>
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-full overflow-hidden bg-slate-800 border border-slate-700 flex items-center justify-center text-xs text-slate-500">
@@ -247,7 +247,7 @@ export function OnboardingPage({ onCompleted, onBack }: OnboardingPageProps) {
                       <p className="mt-1 text-xs text-red-400">{errors.image}</p>
                     )}
                     <p className="text-[11px] text-slate-500">
-                      Recomendado: imagen cuadrada, máximo ~2MB.
+                      Recommended: square image, maximum ~2MB.
                     </p>
                   </div>
                 </div>
@@ -255,12 +255,12 @@ export function OnboardingPage({ onCompleted, onBack }: OnboardingPageProps) {
 
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">
-                  Nombre de usuario *
+                  Username *
                 </label>
                 <Input
                   value={form.username}
                   onChange={(e) => handleChange("username", e.target.value)}
-                  placeholder="ej: realmadridking"
+                  placeholder="eg: realmadridking"
                   className="bg-slate-900/70 border-slate-700/70 text-slate-100 placeholder:text-slate-500"
                   disabled={loading}
                 />
@@ -271,12 +271,12 @@ export function OnboardingPage({ onCompleted, onBack }: OnboardingPageProps) {
 
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">
-                  Nombre visible *
+                  Display name *
                 </label>
                 <Input
                   value={form.displayName}
                   onChange={(e) => handleChange("displayName", e.target.value)}
-                  placeholder="ej: El Rey de las Predicciones"
+                  placeholder="eg: The King of Predictions"
                   className="bg-slate-900/70 border-slate-700/70 text-slate-100 placeholder:text-slate-500"
                   disabled={loading}
                 />
@@ -289,12 +289,12 @@ export function OnboardingPage({ onCompleted, onBack }: OnboardingPageProps) {
 
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">
-                  Bio (opcional)
+                  Bio (optional)
                 </label>
                 <textarea
                   value={form.bio}
                   onChange={(e) => handleChange("bio", e.target.value)}
-                  placeholder="Cuenta quién eres o qué tipo de predicciones haces."
+                  placeholder="Tell us who you are or what type of predictions you make."
                   className="w-full min-h-[100px] rounded-md bg-slate-900/70 border border-slate-700/70 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
                   disabled={loading}
                 />
@@ -304,8 +304,8 @@ export function OnboardingPage({ onCompleted, onBack }: OnboardingPageProps) {
 
           {mode === "signin" && (
             <div className="text-sm text-slate-400">
-              Conecta tu wallet para recuperar tu perfil existente. Asegúrate de
-              usar la misma dirección con la que te registraste.
+              Connect your wallet to recover your existing profile. Make sure you
+              use the same address you registered with.
             </div>
           )}
 
@@ -313,19 +313,19 @@ export function OnboardingPage({ onCompleted, onBack }: OnboardingPageProps) {
             <></>
           )}
 
-          {/* Este bloque vacío mantiene la estructura de spacing */}
+          {/* This empty block maintains the spacing structure */}
 
-          {/* Inputs específicos de signup ya se gestionan arriba */}
+          {/* Signup-specific inputs are already managed above */}
 
-          {/* Dejamos este div para compatibilidad con el diseño anterior */}
+          {/* We leave this div for compatibility with the previous design */}
           <div className="hidden">
             <label className="block text-xs font-medium text-slate-400 mb-1">
-              Nombre de usuario *
+              Username *
             </label>
             <Input
               value={form.username}
               onChange={(e) => handleChange("username", e.target.value)}
-              placeholder="ej: realmadridking"
+              placeholder="eg: realmadridking"
               className="bg-slate-900/70 border-slate-700/70 text-slate-100 placeholder:text-slate-500"
               disabled={loading}
             />
@@ -336,12 +336,12 @@ export function OnboardingPage({ onCompleted, onBack }: OnboardingPageProps) {
 
           <div>
             <label className="block text-xs font-medium text-slate-400 mb-1">
-              Nombre visible *
+              Display name *
             </label>
             <Input
               value={form.displayName}
               onChange={(e) => handleChange("displayName", e.target.value)}
-              placeholder="ej: El Rey de las Predicciones"
+              placeholder="eg: The King of Predictions"
               className="bg-slate-900/70 border-slate-700/70 text-slate-100 placeholder:text-slate-500"
               disabled={loading}
             />
@@ -359,15 +359,15 @@ export function OnboardingPage({ onCompleted, onBack }: OnboardingPageProps) {
             className="w-full bg-emerald-600 hover:bg-emerald-500 text-white"
           >
             {loading || isConnecting
-              ? "Conectando wallet..."
+              ? "Connecting wallet..."
               : mode === "signup"
-              ? "Guardar datos y conectar wallet"
-              : "Conectar wallet"}
+              ? "Save data and connect wallet"
+              : "Connect wallet"}
           </Button>
           <p className="text-[11px] text-slate-500 text-center">
             {mode === "signup"
-              ? "Al continuar se abrirá tu wallet para firmar y vincular esta cuenta a tu dirección."
-              : "Al continuar se abrirá tu wallet y recuperaremos tu perfil asociado a esa dirección."}
+              ? "When you continue, your wallet will open to sign and link this account to your address."
+              : "When you continue, your wallet will open and we will recover your profile associated with that address."}
           </p>
         </div>
       </div>

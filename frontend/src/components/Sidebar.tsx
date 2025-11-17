@@ -3,12 +3,12 @@ import React from 'react';
 
 const menuItems = [
   { icon: Home, label: 'Home', id: 'home' },
-  { icon: Vote, label: 'Mis Votaciones', id: 'my-votes' },
+  { icon: Vote, label: 'My Votes', id: 'my-votes' },
   { icon: Shuffle, label: 'Random', id: 'random' },
-  { icon: Coins, label: 'Mi Moneda', id: 'my-coin' },
+  { icon: Coins, label: 'My Coin', id: 'my-coin' },
   { icon: Wallet, label: 'My Wallet', id: 'my-wallet' },
-  { icon: Users, label: 'Mis Suscripciones', id: 'my-subscriptions' },
-  { icon: TrendingUp, label: 'Mis uVotes', id: 'my-uvotes' },
+  { icon: Users, label: 'My Subscriptions', id: 'my-subscriptions' },
+  { icon: TrendingUp, label: 'My uVotes', id: 'my-uvotes' },
 ];
 
 interface SidebarProps {

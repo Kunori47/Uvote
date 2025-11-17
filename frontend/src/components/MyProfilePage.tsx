@@ -89,7 +89,7 @@ const mockUserProfile: UserProfile = {
   activePredictions: 12,
   winRate: 68.5,
   joinedDate: "2023-06-15",
-  bio: "Creador de contenido enfocado en Gaming, Esports y entretenimiento. Creando las mejores predicciones sobre eventos de gaming y competiciones.",
+  bio: "Content creator focused on Gaming, Esports, and entertainment. Creating the best predictions about gaming events and competitions.",
   hasCreatorCoin: true,
   coinSymbol: "IBAI",
   coinValue: 2.5,
@@ -112,7 +112,7 @@ const mockPredictions: Prediction[] = [
         "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
       verified: true,
     },
-    question: "¿Quién ganará la LVP Superliga 2025?",
+    question: "Who will win the LVP Superliga 2025?",
     category: "Gaming",
     totalPool: 45670,
     options: [
@@ -134,11 +134,11 @@ const mockPredictions: Prediction[] = [
         "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
       verified: true,
     },
-    question: "¿Lanzará GTA 6 en 2025?",
+    question: "Will GTA 6 be released in 2025?",
     category: "Gaming",
     totalPool: 67890,
     options: [
-      { id: "1", label: "Sí", votes: 9382 },
+      { id: "1", label: "Yes", votes: 9382 },
       { id: "2", label: "No", votes: 14074 },
     ],
     endDate: "2025-12-31",
@@ -187,7 +187,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
     Record<string, string>
   >({});
 
-  // Predicciones creadas por este usuario (desde blockchain)
+  // Predictions created by this user (from blockchain)
   const myPredictionsRaw: PredictionData[] = useMemo(() => {
     if (!address) return [];
     return allPredictions.filter(
@@ -195,7 +195,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
     );
   }, [allPredictions, address]);
 
-  // Cargar imágenes de predicciones del creador desde Supabase
+  // Load creator prediction images from Supabase
   useEffect(() => {
     let cancelled = false;
 
@@ -281,7 +281,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
       return {
         id: pred.id,
         creator: {
-          name: profile?.name || "Usuario",
+          name: profile?.name || "User",
           avatar: profile?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${address}`,
           verified: true,
         },
@@ -303,7 +303,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
     (p) => p.status === 0 || p.status === 1 || p.status === 2 || p.status === 3
   ).length;
 
-  // Cuando llega el perfil desde backend, sincronizar el formulario de edición
+  // When profile arrives from backend, sync edit form
   useEffect(() => {
     if (profile) {
     setEditForm({
@@ -323,7 +323,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
     }
   }, [profile]);
 
-  // Cargar perfil real desde Supabase (backend) usando la wallet
+  // Load real profile from Supabase (backend) using wallet
   useEffect(() => {
     const loadProfile = async () => {
       if (!address || !isConnected) {
@@ -338,7 +338,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
 
         const user: any = await apiService.getUser(address);
         
-        // Si no hay usuario en backend, crear perfil básico
+        // If no user in backend, create basic profile
         if (!user) {
           const shortAddr = `${address.slice(0, 6)}...${address.slice(-4)}`;
           const followersCount = await apiService.getCreatorFollowersCount(address);
@@ -364,7 +364,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
           ? `@${user.username}`
           : `${address.slice(0, 6)}...${address.slice(-4)}`;
 
-        // Si Supabase no marcó is_creator, igualmente calculamos seguidores desde subscriptions
+        // If Supabase didn't mark is_creator, we still calculate followers from subscriptions
         const followersCount = await apiService.getCreatorFollowersCount(address);
 
         setProfile({
@@ -381,7 +381,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
         });
       } catch (e: any) {
         console.error("Error loading profile from backend:", e);
-        setProfileError(e?.message || "Error al cargar tu perfil");
+        setProfileError(e?.message || "Error loading your profile");
       } finally {
         setLoadingProfile(false);
       }
@@ -390,7 +390,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
     loadProfile();
   }, [address, isConnected]);
 
-  // Calcular promedio de participantes de todas las predicciones del usuario
+  // Calculate average participants of all user predictions
   useEffect(() => {
     if (!profile || myPredictionsRaw.length === 0) {
       if (profile) {
@@ -402,12 +402,12 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
       return;
     }
 
-    // Calcular el total de participantes de todas las predicciones
+    // Calculate total participants of all predictions
     let totalParticipants = 0;
     let predictionsWithParticipants = 0;
 
     myPredictionsRaw.forEach((pred) => {
-      // Para cada predicción, sumar los totalBettors de todas las opciones
+      // For each prediction, add totalBettors from all options
       const participantsInPrediction = pred.options.reduce((sum, opt) => sum + opt.totalBettors, 0);
       if (participantsInPrediction > 0) {
         totalParticipants += participantsInPrediction;
@@ -415,7 +415,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
       }
     });
 
-    // Calcular el promedio
+    // Calculate average
     const averageParticipants = predictionsWithParticipants > 0 
       ? Math.round(totalParticipants / predictionsWithParticipants)
       : 0;
@@ -426,10 +426,10 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
     });
   }, [myPredictionsRaw, profile]);
 
-  // Cargar información de la moneda del creador (si existe) reutilizando el mismo hook que "Mi Moneda"
+  // Load creator coin information (if exists) reusing the same hook as "My Coin"
   useEffect(() => {
     const loadCreatorCoin = async () => {
-      // Si no hay wallet conectada o el hook indica que no hay token, limpiamos el estado
+      // If no wallet connected or hook indicates no token, clear state
       if (!address || !isConnected || !hasCreatorToken || !myCreatorToken || !profile) {
         if (profile) {
           setProfile({
@@ -444,7 +444,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
       }
 
       try {
-        // Reutilizamos los datos que ya calcula useMyCreatorToken
+        // Reuse the data that useMyCreatorToken already calculates
         const earningsEth = await tokenExchangeService.getCreatorEarnings(address);
 
         setProfile({
@@ -470,7 +470,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString("es-ES", {
+    return date.toLocaleDateString("en-US", {
       month: "long",
       year: "numeric",
     });
@@ -520,7 +520,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
     setIsEditingCoin(false);
   };
 
-  // Pantalla de carga
+  // Loading screen
   if (loadingProfile || !profile) {
     return (
       <div className="pb-6">
@@ -538,7 +538,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
         {/* Loading State */}
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
-          <p className="text-slate-400 text-lg">Cargando tu perfil...</p>
+          <p className="text-slate-400 text-lg">Loading your profile...</p>
         </div>
       </div>
     );
@@ -607,16 +607,16 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                     <Users className="w-4 h-4" />
                     <span>
                       {formatNumber(profile.followers)}{" "}
-                      seguidores
+                      followers
                     </span>
                   </div>
                   <span className="text-slate-700">•</span>
                   <span>
-                    {totalUserPredictions} predicciones
+                    {totalUserPredictions} predictions
                   </span>
                   <span className="text-slate-700">•</span>
                   <span>
-                    Se unió en {formatDate(profile.joinedDate)}
+                    Joined in {formatDate(profile.joinedDate)}
                   </span>
                 </div>
               </div>
@@ -627,16 +627,16 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                 className="flex items-center gap-2 px-6 py-3 bg-slate-800/50 text-slate-300 hover:bg-slate-800 border border-slate-700/50 rounded-xl"
               >
                 <Edit2 className="w-4 h-4" />
-                <span>Editar Perfil</span>
+                <span>Edit Profile</span>
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Mensaje de estado de perfil */}
+        {/* Profile status message */}
         {loadingProfile && (
           <div className="mb-4 text-sm text-slate-400">
-            Cargando tu perfil desde Supabase...
+            Loading your profile from Supabase...
           </div>
         )}
         {profileError && (
@@ -650,18 +650,18 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
           <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4">
             <div className="flex items-center gap-2 text-slate-400 mb-2">
               <Target className="w-4 h-4" />
-              <span className="text-sm">Activas</span>
+              <span className="text-sm">Active</span>
             </div>
             <div className="text-slate-100 text-2xl">
               {activeUserPredictions}
             </div>
           </div>
 
-          {/* Contenedor de Moneda - siempre visible */}
+          {/* Coin container - always visible */}
           <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4">
             <div className="flex items-center gap-2 text-slate-400 mb-2">
               <Coins className="w-4 h-4" />
-              <span className="text-sm">Moneda</span>
+              <span className="text-sm">Coin</span>
             </div>
             {hasCreatorToken && myCreatorToken ? (
               <>
@@ -674,18 +674,18 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
               </>
             ) : (
               <div className="text-slate-500 text-sm">
-                Sin moneda
+                No coin
               </div>
             )}
           </div>
 
-          {/* Contenedores adicionales solo si tiene moneda */}
+          {/* Additional containers only if has coin */}
           {profile.hasCreatorCoin && (
             <>
               <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4">
                 <div className="flex items-center gap-2 text-slate-400 mb-2">
                   <TrendingUp className="w-4 h-4" />
-                  <span className="text-sm">Ganancias</span>
+                  <span className="text-sm">Earnings</span>
                 </div>
                 <div className="text-slate-100 text-2xl">
                   {formatNumber(profile.totalEarnings || 0)} DOT
@@ -706,7 +706,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                   : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
-              Predicciones
+              Predictions
             </button>
             <button
               onClick={() => setActiveTab("about")}
@@ -716,7 +716,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                   : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
-              Información
+              About
             </button>
             <button
               onClick={() => setActiveTab("stats")}
@@ -726,7 +726,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                   : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
-              Estadísticas
+              Stats
             </button>
             {/* <button
               onClick={() => setActiveTab("settings")}
@@ -736,7 +736,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                   : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
-              Configuración
+              Settings
             </button> */}
           </div>
         </div>
@@ -747,7 +747,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {myPredictionsForCards.length === 0 ? (
                 <div className="col-span-full text-center py-12 text-slate-500">
-                  No tienes predicciones todavía
+                  You don't have predictions yet
                 </div>
               ) : (
                 myPredictionsForCards.map((prediction) => (
@@ -766,7 +766,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
             <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-6 mb-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-slate-100">
-                  Sobre {profile.name}
+                  About {profile.name}
                 </h2>
                 <Button
                   onClick={() => setIsEditingProfile(true)}
@@ -783,7 +783,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <div className="text-slate-500 text-sm mb-1">
-                    Categoría Principal
+                    Main Category
                   </div>
                   <div className="text-slate-200">
                     {profile.category}
@@ -791,7 +791,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                 </div>
                 <div>
                   <div className="text-slate-500 text-sm mb-1">
-                    Miembro desde
+                    Member since
                   </div>
                   <div className="text-slate-200">
                     {formatDate(profile.joinedDate)}
@@ -799,7 +799,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                 </div>
                 <div>
                   <div className="text-slate-500 text-sm mb-1">
-                    Total Seguidores
+                    Total Followers
                   </div>
                   <div className="text-slate-200">
                     {formatNumber(profile.followers)}
@@ -807,13 +807,13 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                 </div>
                 <div>
                   <div className="text-slate-500 text-sm mb-1">
-                    Promedio Participantes
+                    Average Participants
                   </div>
                   <div className="text-slate-200">
                     {formatNumber(
                       profile.averageParticipants || 0,
                     )}{" "}
-                    por predicción
+                    per prediction
                   </div>
                 </div>
               </div>
@@ -824,12 +824,12 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h3 className="text-slate-100 mb-2">
-                    Moneda del Creador
+                    Creator Coin
                   </h3>
                   <p className="text-slate-400 text-sm">
                     {profile.hasCreatorCoin
-                      ? "Gestiona tu moneda de creador"
-                      : "Crea tu moneda de creador para que tus seguidores inviertan en ti"}
+                      ? "Manage your creator coin"
+                      : "Create your creator coin so your followers can invest in you"}
                   </p>
                 </div>
                 <Button
@@ -844,7 +844,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <div className="text-slate-500 text-sm mb-1">
-                      Símbolo
+                      Symbol
                     </div>
                     <div className="text-emerald-400">
                       {profile.coinSymbol}
@@ -852,7 +852,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                   </div>
                   <div>
                     <div className="text-slate-500 text-sm mb-1">
-                      Precio Actual
+                      Current Price
                     </div>
                     <div className="text-emerald-400">
                       {profile.coinValue} DOT
@@ -865,7 +865,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                   className="mt-4 bg-emerald-600 hover:bg-emerald-500 text-white"
                 >
                   <DollarSign className="w-4 h-4 mr-2" />
-                  Crear Moneda
+                  Create Coin
                 </Button>
               )}
             </div>
@@ -880,13 +880,13 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                 <div className="flex items-center gap-2 mb-4">
                   <Award className="w-5 h-5 text-emerald-400" />
                   <h3 className="text-slate-100">
-                    Predicciones
+                    Predictions
                   </h3>
                 </div>
                 <div className="space-y-4">
                   <div>
                     <div className="text-slate-500 text-sm mb-1">
-                      Predicciones Totales
+                      Total Predictions
                     </div>
                     <div className="text-slate-200 text-xl">
                       {totalUserPredictions}
@@ -894,7 +894,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                   </div>
                   <div>
                     <div className="text-slate-500 text-sm mb-1">
-                      Predicciones Activas
+                      Active Predictions
                     </div>
                     <div className="text-slate-200 text-xl">
                       {activeUserPredictions}
@@ -912,7 +912,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                 <div className="space-y-4">
                   <div>
                     <div className="text-slate-500 text-sm mb-1">
-                      Seguidores
+                      Followers
                     </div>
                     <div className="text-slate-200 text-xl">
                       {formatNumber(profile.followers)}
@@ -920,7 +920,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                   </div>
                   <div>
                     <div className="text-slate-500 text-sm mb-1">
-                      Promedio Participantes
+                      Average Participants
                     </div>
                     <div className="text-slate-200 text-xl">
                       {formatNumber(
@@ -937,13 +937,13 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                   <div className="flex items-center gap-2 mb-4">
                     <TrendingUp className="w-5 h-5 text-emerald-400" />
                     <h3 className="text-slate-100">
-                      Financiero
+                      Financial
                     </h3>
                   </div>
                   <div className="space-y-4">
                     <div>
                       <div className="text-slate-500 text-sm mb-1">
-                        Ganancias Totales
+                        Total Earnings
                       </div>
                       <div className="text-slate-200 text-xl">
                         {formatNumber(
@@ -953,7 +953,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                     </div>
                     <div>
                       <div className="text-slate-500 text-sm mb-1">
-                        Valor Moneda
+                        Coin Value
                       </div>
                       <div className="text-slate-200 text-xl">
                         {profile.coinValue} DOT
@@ -961,7 +961,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                     </div>
                     <div>
                       <div className="text-slate-500 text-sm mb-1">
-                        Promedio por Predicción
+                        Average per Prediction
                       </div>
                       <div className="text-slate-200 text-xl">
                         {formatNumber(
@@ -980,7 +980,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
               <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Calendar className="w-5 h-5 text-purple-400" />
-                  <h3 className="text-slate-100">Categorías</h3>
+                  <h3 className="text-slate-100">Categories</h3>
                 </div>
                 <div className="space-y-3">
                   <div>
@@ -1044,7 +1044,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
               <div className="flex items-center gap-2 mb-6">
                 <Settings className="w-5 h-5 text-slate-400" />
                 <h2 className="text-slate-100">
-                  Configuración de la Cuenta
+                  Account Settings
                 </h2>
               </div>
 
@@ -1060,18 +1060,18 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                     disabled
                   />
                   <p className="text-slate-500 text-xs mt-1">
-                    Contacta soporte para cambiar tu email
+                    Contact support to change your email
                   </p>
                 </div>
 
                 <div>
                   <label className="text-slate-300 text-sm mb-2 block">
-                    Notificaciones
+                    Notifications
                   </label>
                   <div className="space-y-3">
                     <label className="flex items-center justify-between p-3 bg-slate-800/30 border border-slate-800/50 rounded-xl cursor-pointer hover:bg-slate-800/50 transition-colors">
                       <span className="text-slate-300">
-                        Email de nuevas predicciones
+                        Email for new predictions
                       </span>
                       <input
                         type="checkbox"
@@ -1081,7 +1081,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                     </label>
                     <label className="flex items-center justify-between p-3 bg-slate-800/30 border border-slate-800/50 rounded-xl cursor-pointer hover:bg-slate-800/50 transition-colors">
                       <span className="text-slate-300">
-                        Notificaciones push
+                        Push notifications
                       </span>
                       <input
                         type="checkbox"
@@ -1091,7 +1091,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                     </label>
                     <label className="flex items-center justify-between p-3 bg-slate-800/30 border border-slate-800/50 rounded-xl cursor-pointer hover:bg-slate-800/50 transition-colors">
                       <span className="text-slate-300">
-                        Newsletter semanal
+                        Weekly newsletter
                       </span>
                       <input
                         type="checkbox"
@@ -1106,7 +1106,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                     variant="ghost"
                     className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
                   >
-                    Cerrar Sesión
+                    Sign Out
                   </Button>
                 </div>
               </div>
@@ -1121,7 +1121,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
           <div className="bg-slate-900 border border-slate-800/50 rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-slate-100 text-xl">
-                Editar Perfil
+                Edit Profile
               </h2>
               <button
                 onClick={handleCancelEdit}
@@ -1135,7 +1135,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-slate-300 text-sm mb-2 block">
-                    Nombre
+                    Name
                   </label>
                   <Input
                     value={editForm.name}
@@ -1150,7 +1150,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                 </div>
                 <div>
                   <label className="text-slate-300 text-sm mb-2 block">
-                    Usuario
+                    Username
                   </label>
                   <Input
                     value={editForm.username}
@@ -1167,7 +1167,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
 
               <div>
                 <label className="text-slate-300 text-sm mb-2 block">
-                  Categoría
+                  Category
                 </label>
                 <select
                   value={editForm.category}
@@ -1190,7 +1190,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
 
               <div>
                 <label className="text-slate-300 text-sm mb-2 block">
-                  Biografía
+                  Biography
                 </label>
                 <Textarea
                   value={editForm.bio}
@@ -1224,7 +1224,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
 
               <div>
                 <label className="text-slate-300 text-sm mb-2 block">
-                  Redes Sociales
+                  Social Networks
                 </label>
                 <div className="space-y-2">
                   <Input
@@ -1270,14 +1270,14 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                 className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white"
               >
                 <Save className="w-4 h-4 mr-2" />
-                Guardar Cambios
+                Save Changes
               </Button>
               <Button
                 onClick={handleCancelEdit}
                 variant="ghost"
                 className="flex-1 bg-slate-800/50 hover:bg-slate-800 text-slate-300"
               >
-                Cancelar
+                Cancel
               </Button>
             </div>
           </div>
@@ -1290,8 +1290,8 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
           <div className="bg-slate-900 border border-slate-800/50 rounded-2xl p-6 max-w-md w-full">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-slate-100 text-xl">
-                {profile.hasCreatorCoin ? "Editar" : "Crear"}{" "}
-                Moneda
+                {profile.hasCreatorCoin ? "Edit" : "Create"}{" "}
+                Coin
               </h2>
               <button
                 onClick={() => setIsEditingCoin(false)}
@@ -1304,10 +1304,10 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
             <div className="space-y-4">
               <div>
                 <label className="text-slate-300 text-sm mb-2 block">
-                  Símbolo de la Moneda
+                  Coin Symbol
                 </label>
                 <Input
-                  placeholder="Ej: IBAI"
+                  placeholder="Ex: IBAI"
                   value={coinForm.coinSymbol}
                   onChange={(e) =>
                     setCoinForm({
@@ -1322,12 +1322,12 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
 
               <div>
                 <label className="text-slate-300 text-sm mb-2 block">
-                  Precio Inicial (DOT)
+                  Initial Price (DOT)
                 </label>
                 <Input
                   type="number"
                   step="0.1"
-                  placeholder="Ej: 2.5"
+                  placeholder="Ex: 2.5"
                   value={coinForm.coinValue}
                   onChange={(e) =>
                     setCoinForm({
@@ -1338,8 +1338,8 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                   className="bg-slate-800/50 border-slate-700/50 text-slate-200"
                 />
                 <p className="text-slate-500 text-xs mt-1">
-                  Precio fijo, solo puedes cambiarlo una vez al
-                  mes
+                  Fixed price, you can only change it once a
+                  month
                 </p>
               </div>
             </div>
@@ -1351,16 +1351,17 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
               >
                 <Save className="w-4 h-4 mr-2" />
                 {profile.hasCreatorCoin
-                  ? "Actualizar"
-                  : "Crear"}{" "}
-                Moneda
+                  ? "Update"
+                  : "Create"}{" "}
+                Coin
               </Button>
               <Button
                 onClick={() => setIsEditingCoin(false)}
                 variant="ghost"
                 className="flex-1 bg-slate-800/50 hover:bg-slate-800 text-slate-300"
               >
-                Cancelar
+                Cancel
+                Cancel
               </Button>
             </div>
           </div>

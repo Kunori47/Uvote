@@ -27,19 +27,19 @@ export function Header({ onProfileClick, onCreateClick, onCreateTokenClick, onAc
     displayName: string;
   } | null>(null);
   
-  // Verificar si el usuario ya tiene un token de creador
+  // Check if user already has a creator token
   const { hasToken: hasCreatorToken } = useMyCreatorToken(address || null);
   
   const handleAccess = async () => {
     if (isConnecting) return;
 
-    // Para primer acceso, delegamos en la pantalla de onboarding
+    // For first access, delegate to onboarding screen
     if (onAccessClick) {
       onAccessClick();
       return;
     }
 
-    // Fallback: flujo antiguo (por si se usa Header en otro contexto sin onAccessClick)
+    // Fallback: old flow (in case Header is used in another context without onAccessClick)
     try {
       await connect();
 
@@ -55,10 +55,10 @@ export function Header({ onProfileClick, onCreateClick, onCreateTokenClick, onAc
           authToken
         );
       } catch (profileError) {
-        console.error("Error creando/actualizando usuario en backend:", profileError);
+        console.error("Error creating/updating user in backend:", profileError);
       }
     } catch (e) {
-      console.error("Error en flujo de acceso:", e);
+      console.error("Error in access flow:", e);
     }
   };
 
@@ -66,17 +66,17 @@ export function Header({ onProfileClick, onCreateClick, onCreateTokenClick, onAc
     if (isConnecting) return;
 
     try {
-      // Limpiar el estado local primero
+      // Clear local state first
       disconnect();
       setUserProfile(null);
-      // Reejecutar el flujo de acceso para que el usuario seleccione otra cuenta en la extensión
+      // Re-run access flow so user selects another account in extension
       await handleAccess();
     } catch (e) {
-      console.error("Error cambiando de wallet:", e);
+      console.error("Error changing wallet:", e);
     }
   };
 
-  // Cargar perfil del usuario desde la BD (igual que MyProfilePage)
+  // Load user profile from DB (same as MyProfilePage)
   React.useEffect(() => {
     const loadUserProfile = async () => {
       if (!address || !isConnected) {
@@ -87,7 +87,7 @@ export function Header({ onProfileClick, onCreateClick, onCreateTokenClick, onAc
       try {
         const user: any = await apiService.getUser(address);
         if (!user) {
-          // Si no hay usuario en backend, usar fallback
+          // If no user in backend, use fallback
           const shortAddr = `${address.slice(0, 6)}...${address.slice(-4)}`;
           setUserProfile({
             avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${address}`,
@@ -139,7 +139,7 @@ export function Header({ onProfileClick, onCreateClick, onCreateTokenClick, onAc
           <div className="relative">
             <Input
               type="text"
-              placeholder="Buscar..."
+              placeholder="Search..."
               className="w-full h-11 bg-slate-900/50 border-slate-700/50 text-slate-100 placeholder:text-slate-500 pr-12 focus:border-emerald-600 focus:bg-slate-900 transition-all"
             />
             <button className="absolute right-0 top-0 h-full px-4 hover:bg-slate-800/50 transition-colors rounded-r-md">
@@ -167,7 +167,7 @@ export function Header({ onProfileClick, onCreateClick, onCreateTokenClick, onAc
                     disabled={isConnecting}
                     className="text-[10px] text-slate-500 hover:text-emerald-400 hover:underline underline-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    Cambiar wallet
+                    Change wallet
                   </button>
                 </div>
               </div>
@@ -178,7 +178,7 @@ export function Header({ onProfileClick, onCreateClick, onCreateTokenClick, onAc
                   className="cursor-pointer whitespace-nowrap px-5 py-2.5 text-sm transition-all rounded-full bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-900/30 hover:bg-emerald-500 flex items-center gap-2"
                 >
                   <Plus className="w-4 h-4" />
-                  Crear
+                  Create
                   <ChevronDown className="w-4 h-4" />
                 </Badge>
                 
@@ -189,7 +189,7 @@ export function Header({ onProfileClick, onCreateClick, onCreateTokenClick, onAc
                       onClick={() => setShowCreateMenu(false)}
                     />
                     <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-xl shadow-xl z-20 overflow-hidden">
-                      {/* Mostrar "Crear Token" solo si NO tiene token */}
+                      {/* Show "Create Token" only if user does NOT have token */}
                       {!hasCreatorToken && (
                         <button
                           onClick={() => {
@@ -200,12 +200,12 @@ export function Header({ onProfileClick, onCreateClick, onCreateTokenClick, onAc
                         >
                           <Coins className="w-5 h-5" />
                           <div>
-                            <div className="font-medium">Crear Token</div>
-                            <div className="text-xs text-slate-500">Token de creador</div>
+                            <div className="font-medium">Create Token</div>
+                            <div className="text-xs text-slate-500">Creator token</div>
                           </div>
                         </button>
                       )}
-                      {/* Mostrar "Crear Predicción" solo si tiene token */}
+                      {/* Show "Create Prediction" only if user has token */}
                       {hasCreatorToken && (
                         <button
                           onClick={() => {
@@ -216,8 +216,8 @@ export function Header({ onProfileClick, onCreateClick, onCreateTokenClick, onAc
                         >
                           <FileText className="w-5 h-5" />
                           <div>
-                            <div className="font-medium">Crear Predicción</div>
-                            <div className="text-xs text-slate-500">Nueva predicción</div>
+                            <div className="font-medium">Create Prediction</div>
+                            <div className="text-xs text-slate-500">New prediction</div>
                           </div>
                         </button>
                       )}
@@ -250,7 +250,7 @@ export function Header({ onProfileClick, onCreateClick, onCreateTokenClick, onAc
               className="h-10 px-6 bg-slate-900/50 border-slate-700/50 text-emerald-400 hover:bg-emerald-600 hover:border-emerald-600 hover:text-white transition-all"
             >
               <Wallet className="w-4 h-4 mr-2" />
-              {isConnecting ? 'Accediendo...' : 'Acceder'}
+              {isConnecting ? 'Connecting...' : 'Connect'}
             </Button>
           )}
           

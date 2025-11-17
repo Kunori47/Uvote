@@ -27,115 +27,6 @@ interface Prediction {
   thumbnail: string;
 }
 
-const mockPredictions: Prediction[] = [
-  {
-    id: '1',
-    creator: {
-      name: 'Ibai',
-      avatar: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?w=100&h=100&fit=crop',
-      verified: true,
-    },
-    question: '¿Ganará el Real Madrid la Champions League este año?',
-    category: 'sports',
-    totalPool: 45000,
-    options: [
-      { id: 'yes', label: 'Sí', votes: 28000 },
-      { id: 'no', label: 'No', votes: 17000 },
-    ],
-    endDate: '2025-06-01',
-    thumbnail: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=600&h=400&fit=crop',
-  },
-  {
-    id: '2',
-    creator: {
-      name: 'ElRubius',
-      avatar: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100&h=100&fit=crop',
-      verified: true,
-    },
-    question: '¿GTA 6 se lanzará en 2025?',
-    category: 'gaming',
-    totalPool: 32000,
-    options: [
-      { id: 'yes', label: 'Sí', votes: 8000 },
-      { id: 'no', label: 'No', votes: 24000 },
-    ],
-    endDate: '2025-12-31',
-    thumbnail: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=600&h=400&fit=crop',
-  },
-  {
-    id: '3',
-    creator: {
-      name: 'CryptoExpert',
-      avatar: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=100&h=100&fit=crop',
-      verified: true,
-    },
-    question: '¿Bitcoin superará los $100,000 este año?',
-    category: 'crypto',
-    totalPool: 78000,
-    options: [
-      { id: 'yes', label: 'Sí', votes: 52000 },
-      { id: 'no', label: 'No', votes: 26000 },
-    ],
-    endDate: '2025-12-31',
-    thumbnail: 'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=600&h=400&fit=crop',
-  },
-  {
-    id: '4',
-    creator: {
-      name: 'TechGuru',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop',
-      verified: false,
-    },
-    question: '¿Apple lanzará iPhone plegable en 2026?',
-    category: 'tech',
-    totalPool: 15000,
-    options: [
-      { id: 'yes', label: 'Sí', votes: 9000 },
-      { id: 'no', label: 'No', votes: 6000 },
-    ],
-    endDate: '2026-01-01',
-    thumbnail: 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?w=600&h=400&fit=crop',
-  },
-  {
-    id: '5',
-    creator: {
-      name: 'Deportes Pro',
-      avatar: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=100&h=100&fit=crop',
-      verified: true,
-    },
-    question: '¿Quién ganará el Balón de Oro este año?',
-    category: 'sports',
-    totalPool: 95000,
-    options: [
-      { id: 'messi', label: 'Messi', votes: 20000 },
-      { id: 'cristiano', label: 'Cristiano', votes: 15000 },
-      { id: 'mbappe', label: 'Mbappé', votes: 35000 },
-      { id: 'haaland', label: 'Haaland', votes: 25000 },
-    ],
-    endDate: '2025-10-30',
-    thumbnail: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=600&h=400&fit=crop',
-  },
-  {
-    id: '6',
-    creator: {
-      name: 'Gaming Zone',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop',
-      verified: true,
-    },
-    question: '¿Qué juego será el más vendido en 2025?',
-    category: 'gaming',
-    totalPool: 62000,
-    options: [
-      { id: 'gta6', label: 'GTA 6', votes: 28000 },
-      { id: 'cod', label: 'Call of Duty', votes: 12000 },
-      { id: 'fifa', label: 'EA FC 26', votes: 10000 },
-      { id: 'zelda', label: 'Zelda', votes: 12000 },
-    ],
-    endDate: '2025-12-31',
-    thumbnail: 'https://images.unsplash.com/photo-1556438064-2d7646166914?w=600&h=400&fit=crop',
-  },
-];
-
 interface PredictionFeedProps {
   category: string;
   onViewPrediction?: (id: string) => void;
@@ -153,7 +44,7 @@ export function PredictionFeed({ category, onViewPrediction }: PredictionFeedPro
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [loadingTokenSymbols, setLoadingTokenSymbols] = useState(false);
 
-  // Cargar imágenes y tags desde Supabase para cada predicción
+  // Load images and tags from Supabase for each prediction
   useEffect(() => {
     let cancelled = false;
 
@@ -179,7 +70,7 @@ export function PredictionFeed({ category, onViewPrediction }: PredictionFeedPro
               if (img.image_url) {
                 imageEntries.push([pred.id, img.image_url as string]);
               }
-              // Cargar tags si existen
+              // Load tags if they exist
               if (img.tags && Array.isArray(img.tags) && img.tags.length > 0) {
                 tagEntries.push([pred.id, img.tags as string[]]);
               }
@@ -212,7 +103,7 @@ export function PredictionFeed({ category, onViewPrediction }: PredictionFeedPro
     };
   }, [blockchainPredictions]);
 
-  // Cargar perfiles de creadores desde la BD
+  // Load creator profiles from the database
   useEffect(() => {
     let cancelled = false;
 
@@ -225,12 +116,12 @@ export function PredictionFeed({ category, onViewPrediction }: PredictionFeedPro
 
       try {
         setLoadingProfiles(true);
-        // Obtener direcciones únicas de creadores
+        // Get unique creator addresses
         const uniqueCreators = Array.from(
           new Set(blockchainPredictions.map(pred => pred.creator.toLowerCase()))
         );
 
-        // Cargar perfiles en paralelo
+        // Load profiles in parallel
         const profileEntries: Array<[string, { displayName: string; avatarUrl: string }]> = [];
 
         await Promise.all(
@@ -248,7 +139,7 @@ export function PredictionFeed({ category, onViewPrediction }: PredictionFeedPro
                 
                 profileEntries.push([creatorAddress.toLowerCase(), { displayName, avatarUrl }]);
               } else {
-                // Si no hay usuario en BD, usar fallback
+                // If no user in database, use fallback
                 const shortAddr = `${creatorAddress.slice(0, 6)}...${creatorAddress.slice(-4)}`;
                 profileEntries.push([
                   creatorAddress.toLowerCase(),
@@ -259,7 +150,7 @@ export function PredictionFeed({ category, onViewPrediction }: PredictionFeedPro
                 ]);
               }
             } catch (e) {
-              // En caso de error, usar fallback
+              // In case of error, use fallback
               console.error(`Error loading creator profile for ${creatorAddress}:`, e);
               const shortAddr = `${creatorAddress.slice(0, 6)}...${creatorAddress.slice(-4)}`;
               profileEntries.push([
@@ -296,7 +187,7 @@ export function PredictionFeed({ category, onViewPrediction }: PredictionFeedPro
     };
   }, [blockchainPredictions]);
 
-  // Cargar símbolos de tokens de creadores
+  // Load creator token symbols
   useEffect(() => {
     let cancelled = false;
 
@@ -347,59 +238,59 @@ export function PredictionFeed({ category, onViewPrediction }: PredictionFeedPro
     };
   }, [blockchainPredictions]);
 
-  // Convertir predicciones de blockchain al formato esperado por PredictionCard
+  // Convert blockchain predictions to the format expected by PredictionCard
   const formattedPredictions: Prediction[] = useMemo(() => {
     return blockchainPredictions.map((pred) => {
-      // Calcular fecha de fin legible
-      // Si closesAt es un valor muy grande (type(uint256).max), es una predicción indefinida
-      const MAX_SAFE_TIMESTAMP = 10 ** 15; // Un valor muy grande pero seguro para Date
+      // Calculate readable end date
+      // If closesAt is a very large value (type(uint256).max), it's an indefinite prediction
+      const MAX_SAFE_TIMESTAMP = 10 ** 15; // A very large but safe value for Date
       let endDate: string;
       
       if (pred.closesAt > MAX_SAFE_TIMESTAMP) {
-        // Predicción indefinida (sin tiempo límite)
-        endDate = 'Indefinida';
+        // Indefinite prediction (no time limit)
+        endDate = 'Indefinite';
       } else {
         try {
           const date = new Date(pred.closesAt * 1000);
           if (isNaN(date.getTime())) {
-            endDate = 'Indefinida';
+            endDate = 'Indefinite';
           } else {
             endDate = date.toISOString().split('T')[0];
           }
         } catch {
-          endDate = 'Indefinida';
+          endDate = 'Indefinite';
         }
       }
       
-      // Formatear opciones
+      // Format options
       const options = pred.options.map((opt, index) => ({
         id: index.toString(),
         label: opt.description,
         votes: parseFloat(opt.totalAmount),
       }));
 
-      // Determinar categoría: primero usar tags desde Supabase, luego fallback a keywords
+      // Determine category: first use tags from Supabase, then fallback to keywords
       let predCategory = 'other';
       const tags = predictionTags[pred.id];
       
       if (tags && tags.length > 0) {
-        // Si hay tags, usar el primer tag como categoría principal
+        // If there are tags, use the first tag as the main category
         predCategory = tags[0];
       } else {
-        // Fallback: determinar categoría basada en keywords en el título (solo si no hay tags)
+        // Fallback: determine category based on keywords in title (only if no tags)
         const title = pred.title.toLowerCase();
-        if (title.includes('deporte') || title.includes('fútbol') || title.includes('madrid')) {
+        if (title.includes('sport') || title.includes('futbol') || title.includes('madrid')) {
           predCategory = 'sports';
-        } else if (title.includes('juego') || title.includes('gaming') || title.includes('gta')) {
+        } else if (title.includes('game') || title.includes('gaming') || title.includes('gta')) {
           predCategory = 'gaming';
         } else if (title.includes('crypto') || title.includes('bitcoin') || title.includes('eth')) {
           predCategory = 'crypto';
-        } else if (title.includes('tech') || title.includes('tecnología') || title.includes('iphone')) {
+        } else if (title.includes('tech') || title.includes('technology') || title.includes('iphone')) {
           predCategory = 'tech';
         }
       }
 
-      // Obtener perfil del creador (o usar fallback)
+      // Get creator profile (or use fallback)
       const creatorAddressLower = pred.creator.toLowerCase();
       const creatorProfile = creatorProfiles[creatorAddressLower] || {
         displayName: `${pred.creator.slice(0, 6)}...${pred.creator.slice(-4)}`,
@@ -411,7 +302,7 @@ export function PredictionFeed({ category, onViewPrediction }: PredictionFeedPro
         creator: {
           name: creatorProfile.displayName,
           avatar: creatorProfile.avatarUrl,
-          verified: true, // TODO: Verificar desde CreatorTokenFactory si está activo
+          verified: true, // TODO: Verify from CreatorTokenFactory if active
         },
         question: pred.title,
         category: predCategory,
@@ -420,26 +311,26 @@ export function PredictionFeed({ category, onViewPrediction }: PredictionFeedPro
         endDate,
         thumbnail:
           thumbnails[pred.id] ||
-          `https://api.dicebear.com/7.x/shapes/svg?seed=${pred.id}`, // Placeholder si no hay imagen
-        creatorTokenSymbol: predictionTokenSymbols[pred.id] || 'uVotes', // Símbolo del token del creador
+          `https://api.dicebear.com/7.x/shapes/svg?seed=${pred.id}`, // Placeholder if no image
+        creatorTokenSymbol: predictionTokenSymbols[pred.id] || 'uVotes', // Creator's token symbol
       };
     });
   }, [blockchainPredictions, thumbnails, creatorProfiles, predictionTags, predictionTokenSymbols]);
 
-  // Filtrar por categoría (usando tags guardados en Supabase)
+  // Filter by category (using tags saved in Supabase)
   const filteredPredictions = useMemo(() => {
-    // Si la categoría es 'todos' o 'trending', mostrar todas las predicciones
+    // If category is 'todos' or 'trending', show all predictions
     if (category === 'todos' || category === 'trending') {
       return formattedPredictions;
     }
     
     return formattedPredictions.filter((p) => {
-      // Primero verificar si la categoría coincide directamente
+      // First check if the category matches directly
       if (p.category === category) {
         return true;
       }
       
-      // También verificar si alguno de los tags de la predicción coincide con la categoría
+      // Also check if any of the prediction's tags match the category
       const tags = predictionTags[p.id];
       if (tags && tags.includes(category)) {
         return true;
@@ -449,13 +340,13 @@ export function PredictionFeed({ category, onViewPrediction }: PredictionFeedPro
     });
   }, [formattedPredictions, category, predictionTags]);
 
-  // Mostrar loading si está cargando predicciones O perfiles de creadores O símbolos de tokens
+  // Show loading if loading predictions OR creator profiles OR token symbols
   const isLoading = loading || loadingProfiles || loadingTokenSymbols;
 
-  // Fallback a mocks solo si no hay predicciones reales Y no está cargando
+  // Fallback to mocks only if there are no real predictions AND not loading
   const displayPredictions = !isLoading && filteredPredictions.length > 0 
     ? filteredPredictions 
-    : (!isLoading && (category === 'todos' || category === 'trending') ? mockPredictions : (!isLoading ? mockPredictions.filter(p => p.category === category) : []));
+    : (!isLoading && (category === 'todos' || category === 'trending') ? blockchainPredictions : (!isLoading ? blockchainPredictions.filter(p => p.category === category) : []));
 
   return (
     <div className="p-8">
@@ -463,18 +354,18 @@ export function PredictionFeed({ category, onViewPrediction }: PredictionFeedPro
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mb-4" />
           <p className="text-slate-400">
-            {loading ? 'Cargando predicciones desde blockchain...' : 'Cargando información de creadores...'}
+            {loading ? 'Loading predictions from blockchain...' : 'Loading creator information...'}
           </p>
         </div>
       ) : error ? (
         <div className="flex flex-col items-center justify-center py-20">
-          <p className="text-red-400 mb-2">Error al cargar predicciones</p>
-          <p className="text-slate-500 text-sm">{error}</p>
+          <p className="text-slate-400 mb-2">No predictions available</p>
+          <p className="text-slate-500 text-sm">Try creating a new prediction or check back later</p>
         </div>
       ) : displayPredictions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20">
-          <p className="text-slate-400 mb-2">No hay predicciones en esta categoría</p>
-          <p className="text-slate-500 text-sm">Crea la primera predicción</p>
+          <p className="text-slate-400 mb-2">No predictions in this category</p>
+          <p className="text-slate-500 text-sm">Create the first prediction</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5 max-w-[1800px]">

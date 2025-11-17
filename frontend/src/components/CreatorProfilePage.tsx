@@ -81,7 +81,7 @@ const mockCreator: Creator = {
   activePredictions: 12,
   winRate: 68.5,
   joinedDate: "2023-06-15",
-  bio: "Creador de contenido enfocado en Gaming, Esports y entretenimiento. Creando las mejores predicciones sobre eventos de gaming y competiciones.",
+  bio: "Content creator focused on Gaming, Esports and entertainment. Creating the best predictions about gaming events and competitions.",
   isSubscribed: true,
   notificationsEnabled: true,
   hasCreatorCoin: true,
@@ -100,14 +100,14 @@ const mockPredictions: Prediction[] = [
         "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
       verified: true,
     },
-    question: "¿Quién ganará la LVP Superliga 2025?",
+    question: "Who will win the LVP Superliga 2025?",
     category: "Gaming",
     totalPool: 45670,
     options: [
       { id: "1", label: "KOI", votes: 6823 },
       { id: "2", label: "G2 Heretics", votes: 4570 },
       { id: "3", label: "MAD Lions", votes: 2284 },
-      { id: "4", label: "Otro equipo", votes: 1557 },
+      { id: "4", label: "Other team", votes: 1557 },
     ],
     endDate: "2025-12-15",
     thumbnail:
@@ -122,11 +122,11 @@ const mockPredictions: Prediction[] = [
         "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
       verified: true,
     },
-    question: "¿Lanzará GTA 6 en 2025?",
+    question: "Will GTA 6 be released in 2025?",
     category: "Gaming",
     totalPool: 67890,
     options: [
-      { id: "1", label: "Sí", votes: 9382 },
+      { id: "1", label: "Yes", votes: 9382 },
       { id: "2", label: "No", votes: 14074 },
     ],
     endDate: "2025-12-31",
@@ -142,14 +142,14 @@ const mockPredictions: Prediction[] = [
         "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
       verified: true,
     },
-    question: "¿Cuántos viewers tendrá la Velada del Año IV?",
+    question: "How many viewers will the Velada del Año IV have?",
     category: "Entertainment",
     totalPool: 52340,
     options: [
-      { id: "1", label: "Más de 3M", votes: 7506 },
-      { id: "2", label: "Entre 2M-3M", votes: 6568 },
-      { id: "3", label: "Entre 1M-2M", votes: 3753 },
-      { id: "4", label: "Menos de 1M", votes: 938 },
+      { id: "1", label: "More than 3M", votes: 7506 },
+      { id: "2", label: "Between 2M-3M", votes: 6568 },
+      { id: "3", label: "Between 1M-2M", votes: 3753 },
+      { id: "4", label: "Less than 1M", votes: 938 },
     ],
     endDate: "2025-11-20",
     thumbnail:
@@ -164,11 +164,11 @@ const mockPredictions: Prediction[] = [
         "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
       verified: true,
     },
-    question: "¿T1 ganará Worlds 2025?",
+    question: "Will T1 win Worlds 2025?",
     category: "Esports",
     totalPool: 38670,
     options: [
-      { id: "1", label: "Sí", votes: 7734 },
+      { id: "1", label: "Yes", votes: 7734 },
       { id: "2", label: "No", votes: 5156 },
     ],
     endDate: "2025-11-05",
@@ -184,11 +184,11 @@ const mockPredictions: Prediction[] = [
         "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
       verified: true,
     },
-    question: "¿El nuevo juego de Riot será exitoso?",
+    question: "Will Riot's new game be successful?",
     category: "Gaming",
     totalPool: 29630,
     options: [
-      { id: "1", label: "Sí", votes: 5925 },
+      { id: "1", label: "Yes", votes: 5925 },
       { id: "2", label: "No", votes: 3950 },
     ],
     endDate: "2025-12-01",
@@ -204,11 +204,11 @@ const mockPredictions: Prediction[] = [
         "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop",
       verified: true,
     },
-    question: "¿Habrá colaboración Ibai x Rubius en 2025?",
+    question: "Will there be an Ibai x Rubius collaboration in 2025?",
     category: "Entertainment",
     totalPool: 64370,
     options: [
-      { id: "1", label: "Sí", votes: 17165 },
+      { id: "1", label: "Yes", votes: 17165 },
       { id: "2", label: "No", votes: 4291 },
     ],
     endDate: "2025-12-31",
@@ -223,10 +223,10 @@ type FilterStatus = "all" | "active" | "ended" | "cancelled";
 type SortOption = "recent" | "popular" | "ending-soon" | "most-votes";
 
 const sortOptions = [
-  { id: "recent" as SortOption, label: "Más recientes" },
-  { id: "popular" as SortOption, label: "Más populares" },
-  { id: "ending-soon" as SortOption, label: "Finalizan pronto" },
-  { id: "most-votes" as SortOption, label: "Más votos" },
+  { id: "recent" as SortOption, label: "Most recent" },
+  { id: "popular" as SortOption, label: "Most popular" },
+  { id: "ending-soon" as SortOption, label: "Ending soon" },
+  { id: "most-votes" as SortOption, label: "Most votes" },
 ];
 
 interface CreatorProfilePageProps {
@@ -249,7 +249,7 @@ export function CreatorProfilePage({
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
   
-  // Estados para datos reales
+  // States for real data
   const [creator, setCreator] = useState<Creator | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -273,9 +273,9 @@ export function CreatorProfilePage({
     });
   };
 
-  // ============ CARGAR DATOS DEL BACKEND ============
+  // ============ LOAD BACKEND DATA ============
   
-  // Cargar perfil del creador desde Supabase
+  // Load creator profile from Supabase
   useEffect(() => {
     const loadCreatorProfile = async () => {
       if (!creatorId) return;
@@ -288,7 +288,7 @@ export function CreatorProfilePage({
         const followersCount = await apiService.getCreatorFollowersCount(creatorId);
 
         if (!user) {
-          // Si no hay usuario en backend, usar datos básicos
+          // If no user in backend, use basic data
           const shortAddr = `${creatorId.slice(0, 6)}...${creatorId.slice(-4)}`;
           setCreator({
             ...mockCreator,
@@ -315,14 +315,14 @@ export function CreatorProfilePage({
           avatar:
             user.profile_image_url ||
             `https://api.dicebear.com/7.x/avataaars/svg?seed=${creatorId}`,
-          banner: mockCreator.banner, // Usar banner por defecto si no hay uno personalizado
+          banner: mockCreator.banner, // Use default banner if no custom one
           bio: user.bio || "",
           followers: followersCount,
           joinedDate: user.created_at || new Date().toISOString(),
         });
       } catch (e: any) {
         console.error("Error loading creator profile:", e);
-        setProfileError(e?.message || "Error al cargar el perfil del creador");
+        setProfileError(e?.message || "Error loading creator profile");
       } finally {
         setLoadingProfile(false);
       }
@@ -331,9 +331,9 @@ export function CreatorProfilePage({
     loadCreatorProfile();
   }, [creatorId]);
 
-  // ============ CARGAR DATOS DE BLOCKCHAIN ============
+  // ============ LOAD BLOCKCHAIN DATA ============
 
-  // Cargar información del token del creador
+  // Load creator token information
   useEffect(() => {
     if (!creatorId || !hasCreatorToken || !creatorToken || !creator) {
       if (creator) {
@@ -355,7 +355,7 @@ export function CreatorProfilePage({
     }));
   }, [creatorId, hasCreatorToken, creatorToken]);
 
-  // Cargar ganancias del creador
+  // Load creator earnings
   useEffect(() => {
     const loadEarnings = async () => {
       if (!creatorId || !hasCreatorToken) {
@@ -378,7 +378,7 @@ export function CreatorProfilePage({
     loadEarnings();
   }, [creatorId, hasCreatorToken]);
 
-  // Filtrar predicciones del creador
+  // Filter creator predictions
   const creatorPredictions: PredictionData[] = useMemo(() => {
     if (!creatorId) return [];
     return allPredictions.filter(
@@ -386,7 +386,7 @@ export function CreatorProfilePage({
     );
   }, [allPredictions, creatorId]);
 
-  // Cargar imágenes de predicciones del creador
+  // Load creator prediction images
   useEffect(() => {
     let cancelled = false;
 
@@ -435,7 +435,7 @@ export function CreatorProfilePage({
     };
   }, [creatorPredictions]);
 
-  // Actualizar estadísticas de predicciones
+  // Update prediction statistics
   useEffect(() => {
     if (!creator) return;
     
@@ -444,32 +444,32 @@ export function CreatorProfilePage({
       (p) => p.status === 0 || p.status === 1 || p.status === 2 || p.status === 3
     ).length;
     
-    // Calcular porcentaje de acierto basado en predicciones confirmadas
-    // Solo contar predicciones que estén confirmadas (status === 4) y tengan un winningOption válido
+    // Calculate success percentage based on confirmed predictions
+    // Only count predictions that are confirmed (status === 4) and have a valid winningOption
     const confirmedPredictions = creatorPredictions.filter(
       (p) => p.status === 4 && p.winningOption >= 0 && p.winningOption < p.options.length
     );
     
-    // Solo contar predicciones que hayan sido resueltas (status >= 2) para calcular el porcentaje
-    // Excluir predicciones activas, canceladas y disputadas del cálculo
+    // Only count predictions that have been resolved (status >= 2) to calculate the percentage
+    // Exclude active, cancelled, and disputed predictions from the calculation
     const resolvedPredictions = creatorPredictions.filter(
       (p) => p.status === 2 || p.status === 3 || p.status === 4 || p.status === 5
     );
     
-    // Calcular win rate: porcentaje de predicciones confirmadas sobre predicciones resueltas
+    // Calculate win rate: percentage of confirmed predictions over resolved predictions
     let winRate = 0;
     if (resolvedPredictions.length > 0) {
       winRate = (confirmedPredictions.length / resolvedPredictions.length) * 100;
-      // Redondear a 1 decimal
+      // Round to 1 decimal
       winRate = Math.round(winRate * 10) / 10;
     }
 
-    // Calcular promedio de participantes de todas las predicciones del creador
+    // Calculate average participants of all creator predictions
     let totalParticipants = 0;
     let predictionsWithParticipants = 0;
 
     creatorPredictions.forEach((pred) => {
-      // Para cada predicción, sumar los totalBettors de todas las opciones
+      // For each prediction, sum totalBettors from all options
       const participantsInPrediction = pred.options.reduce((sum, opt) => sum + opt.totalBettors, 0);
       if (participantsInPrediction > 0) {
         totalParticipants += participantsInPrediction;
@@ -477,7 +477,7 @@ export function CreatorProfilePage({
       }
     });
 
-    // Calcular el promedio
+    // Calculate the average
     const averageParticipants = predictionsWithParticipants > 0 
       ? Math.round(totalParticipants / predictionsWithParticipants)
       : 0;
@@ -494,11 +494,11 @@ export function CreatorProfilePage({
     });
   }, [creatorPredictions, creator]);
 
-  // ============ MANEJO DE SUSCRIPCIONES ============
+  // ============ SUBSCRIPTION MANAGEMENT ============
 
   const handleToggleSubscription = async () => {
     if (!isConnected || !currentUserAddress) {
-      setSubscriptionError("Debes conectar tu wallet para suscribirte");
+      setSubscriptionError("You must connect your wallet to subscribe");
       setTimeout(() => setSubscriptionError(null), 3000);
       return;
     }
@@ -516,17 +516,17 @@ export function CreatorProfilePage({
       }
     } catch (err: any) {
       console.error("Error toggling subscription:", err);
-      setSubscriptionError(err.message || "Error al cambiar suscripción");
+      setSubscriptionError(err.message || "Error changing subscription");
       setTimeout(() => setSubscriptionError(null), 5000);
     } finally {
       setIsTogglingSubscription(false);
     }
   };
 
-  // Verificar estado de suscripción
+  // Verify subscription status
   const isSubscribed = isUserSubscribed(creatorId);
 
-  // Convertir predicciones de blockchain al formato de PredictionCard
+  // Convert blockchain predictions to PredictionCard format
   const predictionsForCards = useMemo(() => {
     if (!creator) return [];
     
@@ -534,11 +534,11 @@ export function CreatorProfilePage({
       const MAX_SAFE_TIMESTAMP = 10 ** 15;
       let endDate: string;
       if (pred.closesAt > MAX_SAFE_TIMESTAMP) {
-        endDate = "Indefinida";
+        endDate = "Indefinite";
       } else {
         const date = new Date(pred.closesAt * 1000);
         endDate = isNaN(date.getTime())
-          ? "Indefinida"
+          ? "Indefinite"
           : date.toISOString().split("T")[0];
       }
 
@@ -550,13 +550,13 @@ export function CreatorProfilePage({
 
       let predCategory = "other";
       const title = pred.title.toLowerCase();
-      if (title.includes("deporte") || title.includes("fútbol") || title.includes("madrid")) {
+      if (title.includes("sports") || title.includes("soccer") || title.includes("madrid")) {
         predCategory = "sports";
       } else if (title.includes("juego") || title.includes("gaming") || title.includes("gta")) {
         predCategory = "gaming";
       } else if (title.includes("crypto") || title.includes("bitcoin") || title.includes("eth")) {
         predCategory = "crypto";
-      } else if (title.includes("tech") || title.includes("tecnología") || title.includes("iphone")) {
+      } else if (title.includes("tech") || title.includes("technology") || title.includes("iphone")) {
         predCategory = "tech";
       }
 
@@ -600,8 +600,8 @@ export function CreatorProfilePage({
         case "popular":
           return b.totalPool - a.totalPool;
         case "ending-soon":
-          if (a.endDate === "Indefinida") return 1;
-          if (b.endDate === "Indefinida") return -1;
+          if (a.endDate === "Indefinite") return 1;
+          if (b.endDate === "Indefinite") return -1;
           return (
             new Date(a.endDate).getTime() - new Date(b.endDate).getTime()
           );
@@ -614,7 +614,7 @@ export function CreatorProfilePage({
       }
     });
 
-  // Mostrar pantalla de carga mientras se carga el perfil
+  // Show loading screen while loading profile
   if (loadingProfile || !creator) {
     return (
       <div className="pb-6">
@@ -624,12 +624,12 @@ export function CreatorProfilePage({
             className="flex items-center gap-2 text-slate-400 hover:text-slate-200 transition-colors mb-6"
           >
             <ArrowLeft className="w-5 h-5" />
-            <span>Volver</span>
+            <span>Back</span>
           </button>
         </div>
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
           <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
-          <p className="text-slate-400 text-lg">Cargando perfil del creador...</p>
+          <p className="text-slate-400 text-lg">Loading creator profile...</p>
         </div>
       </div>
     );
@@ -690,12 +690,12 @@ export function CreatorProfilePage({
                 <div className="flex items-center gap-4 text-slate-400 mb-3">
                   <div className="flex items-center gap-1.5">
                     <Users className="w-4 h-4" />
-                    <span>{formatNumber(creator.followers)} seguidores</span>
+                    <span>{formatNumber(creator.followers)} followers</span>
                   </div>
                   <span className="text-slate-700">•</span>
-                  <span>{creator.totalPredictions} predicciones</span>
+                  <span>{creator.totalPredictions} predictions</span>
                   <span className="text-slate-700">•</span>
-                  <span>Se unió en {formatDate(creator.joinedDate)}</span>
+                  <span>Joined in {formatDate(creator.joinedDate)}</span>
                 </div>
               </div>
 
@@ -727,17 +727,17 @@ export function CreatorProfilePage({
                   {isTogglingSubscription || subscriptionLoading ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>{isSubscribed ? "Desuscribiendo..." : "Suscribiendo..."}</span>
+                      <span>{isSubscribed ? "Unsubscribing..." : "Subscribing..."}</span>
                     </>
                   ) : isSubscribed ? (
                     <>
                       <UserMinus className="w-5 h-5" />
-                      <span>Desuscribirse</span>
+                      <span>Unsubscribe</span>
                     </>
                   ) : (
                     <>
                       <UserPlus className="w-5 h-5" />
-                      <span>Suscribirse</span>
+                      <span>Subscribe</span>
                     </>
                   )}
                 </button>
@@ -746,7 +746,7 @@ export function CreatorProfilePage({
           </div>
         </div>
 
-        {/* Mensajes de error/estado */}
+        {/* Error/Status Messages */}
         {profileError && (
           <div className="mb-4 mx-6 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">
             {profileError}
@@ -759,7 +759,7 @@ export function CreatorProfilePage({
         )}
         {loadingProfile && (
           <div className="mb-4 mx-6 text-sm text-slate-400">
-            Cargando perfil del creador...
+            Loading creator profile...
           </div>
         )}
 
@@ -768,7 +768,7 @@ export function CreatorProfilePage({
           <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4">
             <div className="flex items-center gap-2 text-slate-400 mb-2">
               <Trophy className="w-4 h-4" />
-              <span className="text-sm">% Acierto</span>
+              <span className="text-sm">% Success</span>
             </div>
             <div className="text-emerald-400 text-2xl">{creator.winRate.toFixed(1)}%</div>
           </div>
@@ -776,18 +776,18 @@ export function CreatorProfilePage({
           <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4">
             <div className="flex items-center gap-2 text-slate-400 mb-2">
               <Target className="w-4 h-4" />
-              <span className="text-sm">Activas</span>
+              <span className="text-sm">Active</span>
             </div>
             <div className="text-slate-100 text-2xl">
               {creator.activePredictions}
             </div>
           </div>
 
-          {/* Contenedor de Moneda - siempre visible */}
+          {/* Coin Container - always visible */}
           <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-4">
             <div className="flex items-center gap-2 text-slate-400 mb-2">
               <Coins className="w-4 h-4" />
-              <span className="text-sm">Moneda</span>
+              <span className="text-sm">Coin</span>
             </div>
             {creator.hasCreatorCoin && creatorToken ? (
               <>
@@ -800,7 +800,7 @@ export function CreatorProfilePage({
               </>
             ) : (
               <div className="text-slate-500 text-sm">
-                Sin moneda
+                No coin
               </div>
             )}
           </div>
@@ -817,7 +817,7 @@ export function CreatorProfilePage({
                   : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
-              Predicciones
+              Predictions
             </button>
             <button
               onClick={() => setActiveTab("about")}
@@ -827,7 +827,7 @@ export function CreatorProfilePage({
                   : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
-              Información
+              Information
             </button>
             <button
               onClick={() => setActiveTab("stats")}
@@ -837,7 +837,7 @@ export function CreatorProfilePage({
                   : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
-              Estadísticas
+              Statistics
             </button>
           </div>
         </div>
@@ -857,7 +857,7 @@ export function CreatorProfilePage({
                       : "bg-slate-900/50 text-slate-400 border border-slate-800/50 hover:bg-slate-800/50"
                   }`}
                 >
-                  Todas
+                  All
                 </button>
                 <button
                   onClick={() => setFilterStatus("active")}
@@ -867,7 +867,7 @@ export function CreatorProfilePage({
                       : "bg-slate-900/50 text-slate-400 border border-slate-800/50 hover:bg-slate-800/50"
                   }`}
                 >
-                  Activas ({creator.activePredictions || 0})
+                  Active ({creator.activePredictions || 0})
                 </button>
                 <button
                   onClick={() => setFilterStatus("ended")}
@@ -877,7 +877,7 @@ export function CreatorProfilePage({
                       : "bg-slate-900/50 text-slate-400 border border-slate-800/50 hover:bg-slate-800/50"
                   }`}
                 >
-                  Finalizadas
+                  Completed
                 </button>
               </div>
 
@@ -919,11 +919,11 @@ export function CreatorProfilePage({
               {loadingProfile ? (
                 <div className="col-span-full text-center py-12 text-slate-500">
                   <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-                  Cargando predicciones...
+                  Loading predictions...
                 </div>
               ) : filteredAndSortedPredictions.length === 0 ? (
                 <div className="col-span-full text-center py-12 text-slate-500">
-                  No hay predicciones para mostrar
+                  No predictions to show
                 </div>
               ) : (
                 filteredAndSortedPredictions.map((prediction) => (
@@ -937,28 +937,28 @@ export function CreatorProfilePage({
         {activeTab === "about" && (
           <div className="max-w-3xl">
             <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-6 mb-6">
-              <h2 className="text-slate-100 mb-4">Sobre {creator.name}</h2>
+              <h2 className="text-slate-100 mb-4">About {creator.name}</h2>
               <p className="text-slate-400 leading-relaxed mb-6">
                 {creator.bio}
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <div className="text-slate-500 text-sm mb-1">Categoría Principal</div>
+                  <div className="text-slate-500 text-sm mb-1">Main Category</div>
                   <div className="text-slate-200">{creator.category}</div>
                 </div>
                 <div>
-                  <div className="text-slate-500 text-sm mb-1">Miembro desde</div>
+                  <div className="text-slate-500 text-sm mb-1">Member since</div>
                   <div className="text-slate-200">{formatDate(creator.joinedDate)}</div>
                 </div>
                 <div>
-                  <div className="text-slate-500 text-sm mb-1">Total Seguidores</div>
+                  <div className="text-slate-500 text-sm mb-1">Total Followers</div>
                   <div className="text-slate-200">{formatNumber(creator.followers)}</div>
                 </div>
                 <div>
-                  <div className="text-slate-500 text-sm mb-1">Promedio Participantes</div>
+                  <div className="text-slate-500 text-sm mb-1">Average Participants</div>
                   <div className="text-slate-200">
-                    {formatNumber(creator.averageParticipants || 0)} por predicción
+                    {formatNumber(creator.averageParticipants || 0)} per prediction
                   </div>
                 </div>
               </div>
@@ -969,12 +969,12 @@ export function CreatorProfilePage({
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h3 className="text-slate-100 mb-2">
-                    Moneda del Creador
+                    Creator Coin
                   </h3>
                   <p className="text-slate-400 text-sm">
                     {creator.hasCreatorCoin
-                      ? `Invierte en ${creator.name} comprando su moneda oficial`
-                      : `${creator.name} aún no ha creado su moneda`}
+                      ? `Invest in ${creator.name} by buying their official coin`
+                      : `${creator.name} hasn't created their coin yet`}
                   </p>
                 </div>
               </div>
@@ -982,7 +982,7 @@ export function CreatorProfilePage({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <div className="text-slate-500 text-sm mb-1">
-                      Símbolo
+                      Symbol
                     </div>
                     <div className="text-emerald-400">
                       {creatorToken.symbol}
@@ -990,7 +990,7 @@ export function CreatorProfilePage({
                   </div>
                   <div>
                     <div className="text-slate-500 text-sm mb-1">
-                      Precio Actual
+                      Current Price
                     </div>
                     <div className="text-emerald-400">
                       {parseFloat(creatorToken.price).toFixed(2)} DOT
@@ -999,7 +999,7 @@ export function CreatorProfilePage({
                 </div>
               ) : (
                 <div className="text-slate-400 text-sm">
-                  Este creador aún no ha creado su moneda
+                  This creator hasn't created their coin yet
                 </div>
               )}
             </div>
@@ -1013,12 +1013,12 @@ export function CreatorProfilePage({
               <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Award className="w-5 h-5 text-emerald-400" />
-                  <h3 className="text-slate-100">Rendimiento</h3>
+                  <h3 className="text-slate-100">Performance</h3>
                 </div>
                 <div className="space-y-4">
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-slate-400 text-sm">Tasa de Acierto</span>
+                      <span className="text-slate-400 text-sm">Success Rate</span>
                       <span className="text-emerald-400">{creator.winRate.toFixed(1)}%</span>
                     </div>
                     <div className="w-full bg-slate-800/50 rounded-full h-2">
@@ -1029,11 +1029,11 @@ export function CreatorProfilePage({
                     </div>
                   </div>
                   <div>
-                    <div className="text-slate-500 text-sm mb-1">Predicciones Totales</div>
+                    <div className="text-slate-500 text-sm mb-1">Total Predictions</div>
                     <div className="text-slate-200 text-xl">{creator.totalPredictions}</div>
                   </div>
                   <div>
-                    <div className="text-slate-500 text-sm mb-1">Predicciones Activas</div>
+                    <div className="text-slate-500 text-sm mb-1">Active Predictions</div>
                     <div className="text-slate-200 text-xl">{creator.activePredictions}</div>
                   </div>
                 </div>
@@ -1047,13 +1047,13 @@ export function CreatorProfilePage({
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <div className="text-slate-500 text-sm mb-1">Seguidores</div>
+                    <div className="text-slate-500 text-sm mb-1">Followers</div>
                     <div className="text-slate-200 text-xl">
                       {formatNumber(creator.followers)}
                     </div>
                   </div>
                   <div>
-                    <div className="text-slate-500 text-sm mb-1">Promedio Participantes</div>
+                    <div className="text-slate-500 text-sm mb-1">Average Participants</div>
                     <div className="text-slate-200 text-xl">
                       {formatNumber(creator.averageParticipants || 0)}
                     </div>
@@ -1063,11 +1063,11 @@ export function CreatorProfilePage({
 
               
 
-              {/* Categories */}
+              {/* Categories - Not implemented yet
               <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Calendar className="w-5 h-5 text-purple-400" />
-                  <h3 className="text-slate-100">Categorías</h3>
+                  <h3 className="text-slate-100">Categories</h3>
                 </div>
                 <div className="space-y-3">
                   <div>
@@ -1098,7 +1098,7 @@ export function CreatorProfilePage({
                     </div>
                   </div>
                 </div>
-              </div>
+              </div>*/}
             </div>
           </div>
         )}

@@ -7,11 +7,11 @@ import { predictionMarketService, creatorTokenService } from '../lib/contractSer
 import { apiService } from '../lib/apiService';
 import { CONTRACT_ADDRESSES, NETWORK_CONFIG } from '../lib/contracts';
 
-const STATUS_NAMES = ['Activa', 'Cerrada', 'Cooldown', 'En Revisión', 'Confirmada', 'Disputada', 'Cancelada'];
+const STATUS_NAMES = ['Active', 'Closed', 'Cooldown', 'Under Review', 'Confirmed', 'Disputed', 'Cancelled'];
 const STATUS_COLORS = ['emerald', 'slate', 'yellow', 'orange', 'green', 'red', 'gray'];
 const STATUS_ICONS = [Clock, CheckCircle2, Clock, AlertCircle, CheckCircle2, AlertCircle, CheckCircle2];
 
-// Colores de opciones (igual que en PredictionCard)
+// Option colors (same as in PredictionCard)
 const optionColors = [
   { border: 'border-emerald-500', text: 'text-emerald-400', bg: 'bg-emerald-500', bgBar: 'bg-emerald-500' },
   { border: 'border-red-500', text: 'text-red-400', bg: 'bg-red-500', bgBar: 'bg-red-500' },
@@ -21,35 +21,35 @@ const optionColors = [
   { border: 'border-purple-500', text: 'text-purple-400', bg: 'bg-purple-500', bgBar: 'bg-purple-500' },
 ];
 
-// Helper para obtener color de opción
+// Helper to get option color
 const getColorForOption = (label: string, index: number) => {
   const normalizedLabel = label.toLowerCase();
-  if (normalizedLabel === 'sí' || normalizedLabel === 'si') {
-    return optionColors[0]; // Verde para Sí
+  if (normalizedLabel === 'yes' || normalizedLabel === 'si') {
+    return optionColors[0]; // Green for Yes
   }
   if (normalizedLabel === 'no') {
-    return optionColors[1]; // Rojo para No
+    return optionColors[1]; // Red for No
   }
   return optionColors[index % optionColors.length];
 };
 
-// Mapeo de categorías a nombres en español
+// Category mapping to English names
 const categoryNames: Record<string, string> = {
-  'sports': 'Deportes',
+  'sports': 'Sports',
   'gaming': 'Gaming',
-  'crypto': 'Cripto',
+  'crypto': 'Crypto',
   'tech': 'Tech',
-  'politics': 'Política',
-  'entertainment': 'Entretenimiento',
-  'finance': 'Finanzas',
-  'science': 'Ciencia',
-  'music': 'Música',
-  'fashion': 'Moda',
-  'food': 'Comida',
-  'other': 'Otros',
+  'politics': 'Politics',
+  'entertainment': 'Entertainment',
+  'finance': 'Finance',
+  'science': 'Science',
+  'music': 'Music',
+  'fashion': 'Fashion',
+  'food': 'Food',
+  'other': 'Other',
 };
 
-// Los statusFilters ahora se generan dinámicamente con las estadísticas reales
+// Status filters are now generated dynamically with real statistics
 
 interface MyUVotesPageProps {
   onViewPrediction: (id: string) => void;
@@ -68,7 +68,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
   const [predictionTokenSymbols, setPredictionTokenSymbols] = useState<Record<string, string>>({});
   const [loadingMetadata, setLoadingMetadata] = useState(false);
 
-  // Cargar imágenes, tags y opciones de predicciones
+  // Load images, tags and prediction options
   useEffect(() => {
     const loadPredictionMetadata = async () => {
       if (predictions.length === 0) {
@@ -88,7 +88,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
 
         await Promise.all(
           predictions.map(async (pred) => {
-            // Cargar imagen y tags
+            // Load image and tags
             try {
               const img = await apiService.getPredictionImage(
                 pred.id,
@@ -107,7 +107,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
               console.error(`Error loading image for prediction ${pred.id}:`, err);
             }
 
-            // Cargar opciones
+            // Load options
             try {
               const options = await predictionMarketService.getPredictionOptions(pred.id);
               optionsMap[pred.id] = options;
@@ -115,7 +115,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
               console.error(`Error loading options for prediction ${pred.id}:`, err);
             }
 
-            // Cargar símbolo del token del creador
+            // Load creator token symbol
             try {
               const predictionData = await predictionMarketService.getPrediction(pred.id);
               if (predictionData && predictionData.creatorToken) {
@@ -148,24 +148,24 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
   // Formatear fecha
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp * 1000);
-    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
   };
 
-  // Formatear fecha de finalización
+  // Format end date
   const formatEndDate = (timestamp: number) => {
     if (timestamp === 0 || timestamp >= 2**256 - 1) return '∞';
     const date = new Date(timestamp * 1000);
-    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
   };
 
-  // Formatear número con puntos
+  // Format number with thousands separators
   const formatNumber = (num: number) => {
-    return num.toLocaleString('es-ES');
+    return num.toLocaleString('en-US');
   };
 
-  // Filtrar predicciones
+  // Filter predictions
   const filteredPredictions = useMemo(() => {
     return predictions.filter((pred) => {
       if (statusFilter !== 'all') {
@@ -178,7 +178,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
     });
   }, [predictions, statusFilter]);
 
-  // Estadísticas
+  // Statistics
   const stats = useMemo(() => {
     const totalPool = predictions.reduce((sum, pred) => sum + parseFloat(pred.totalPool), 0);
     const totalParticipants = predictions.reduce((sum, pred) => sum + pred.participantCount, 0);
@@ -187,7 +187,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
     const cooldownPredictions = predictions.filter(p => p.status === 2).length;
     const finishedPredictions = predictions.filter(p => p.status === 4).length;
     
-    // Los creadores no ganan por predicciones, solo por venta de tokens
+      // Creators don't earn from predictions, only from token sales
     const estimatedEarnings = 0;
 
     return {
@@ -202,13 +202,13 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
     };
   }, [predictions]);
 
-  // Generar filtros dinámicamente con las estadísticas reales
+  // Generate filters dynamically with real statistics
   const statusFilters = useMemo(() => [
-    { id: 'all', label: 'Todas' },
-    { id: 'active', label: `Activas (${stats.active})` },
-    { id: 'closed', label: `Cerradas (${stats.closed})` },
-    { id: 'cooldown', label: `En Cooldown (${stats.cooldown})` },
-    { id: 'finished', label: `Finalizadas (${stats.finished})` },
+    { id: 'all', label: 'All' },
+    { id: 'active', label: `Active (${stats.active})` },
+    { id: 'closed', label: `Closed (${stats.closed})` },
+    { id: 'cooldown', label: `Cooldown (${stats.cooldown})` },
+    { id: 'finished', label: `Finished (${stats.finished})` },
   ], [stats]);
 
   if (!isConnected) {
@@ -216,8 +216,8 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
       <div className="p-6">
         <div className="flex flex-col items-center justify-center py-20">
           <Wallet className="w-16 h-16 text-slate-400 mb-4" />
-          <h2 className="text-2xl font-bold text-slate-100 mb-2">Wallet no conectada</h2>
-          <p className="text-slate-400">Conecta tu wallet para ver tu dashboard de creador</p>
+          <h2 className="text-2xl font-bold text-slate-100 mb-2">Wallet not connected</h2>
+          <p className="text-slate-400">Connect your wallet to see your creator dashboard</p>
         </div>
       </div>
     );
@@ -228,7 +228,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
       <div className="p-6">
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mb-4" />
-          <p className="text-slate-400">Cargando tus predicciones...</p>
+          <p className="text-slate-400">Loading your predictions...</p>
         </div>
       </div>
     );
@@ -252,15 +252,15 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-slate-100 mb-1">Dashboard de Creador</h1>
-            <p className="text-slate-400">Gestiona y monitorea tus predicciones</p>
+            <h1 className="text-3xl font-bold text-slate-100 mb-1">Creator Dashboard</h1>
+            <p className="text-slate-400">Manage and monitor your predictions</p>
           </div>
           <button
             onClick={() => onCreatePrediction?.()}
             className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
-            Nueva Predicción
+            New Prediction
           </button>
         </div>
 
@@ -271,27 +271,27 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
             <div className="text-2xl font-bold text-slate-100">{stats.total}</div>
           </div>
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4">
-            <div className="text-slate-500 text-sm mb-1">Activas</div>
+            <div className="text-slate-500 text-sm mb-1">Active</div>
             <div className="text-2xl font-bold text-emerald-400">{stats.active}</div>
           </div>
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4">
-            <div className="text-slate-500 text-sm mb-1">Cerradas</div>
+            <div className="text-slate-500 text-sm mb-1">Closed</div>
             <div className="text-2xl font-bold text-yellow-400">{stats.closed}</div>
           </div>
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4">
-            <div className="text-slate-500 text-sm mb-1">Finalizadas</div>
+            <div className="text-slate-500 text-sm mb-1">Finished</div>
             <div className="text-2xl font-bold text-blue-400">{stats.finished}</div>
           </div>
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4">
-            <div className="text-slate-500 text-sm mb-1">Pool Total</div>
+            <div className="text-slate-500 text-sm mb-1">Total Pool</div>
             <div className="text-2xl font-bold text-purple-400">{stats.totalPool}</div>
           </div>
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4">
-            <div className="text-slate-500 text-sm mb-1">Participantes</div>
+            <div className="text-slate-500 text-sm mb-1">Participants</div>
             <div className="text-2xl font-bold text-slate-100">{stats.totalParticipants}</div>
           </div>
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4">
-            <div className="text-slate-500 text-sm mb-1">Ganancias</div>
+            <div className="text-slate-500 text-sm mb-1">Earnings</div>
             <div className="text-2xl font-bold text-emerald-400">{stats.estimatedEarnings}</div>
           </div>
         </div>
@@ -303,7 +303,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
             className="flex items-center gap-2 px-4 py-2 bg-slate-900/50 border border-slate-800/50 rounded-xl text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 transition-all"
           >
             <Filter className="w-4 h-4" />
-            Filtros
+            Filters
           </button>
           
           {statusFilter !== 'all' && (
@@ -311,7 +311,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
               onClick={() => setStatusFilter('all')}
               className="text-sm text-emerald-400 hover:text-emerald-300"
             >
-              Limpiar filtros
+              Clear filters
             </button>
           )}
         </div>
@@ -319,7 +319,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
         {/* Filter Options */}
         {showFilters && (
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4 mb-4">
-            <div className="text-slate-400 text-sm mb-2">Estado</div>
+            <div className="text-slate-400 text-sm mb-2">Status</div>
             <div className="flex flex-wrap gap-2">
               {statusFilters.map((filter) => (
                 <button
@@ -343,11 +343,11 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
       {filteredPredictions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20">
           <BarChart3 className="w-16 h-16 text-slate-600 mb-4" />
-          <h3 className="text-xl font-bold text-slate-300 mb-2">No hay predicciones</h3>
+          <h3 className="text-xl font-bold text-slate-300 mb-2">No predictions</h3>
           <p className="text-slate-500 mb-6">
             {predictions.length === 0 
-              ? 'Aún no has creado ninguna predicción'
-              : 'No hay predicciones que coincidan con los filtros'}
+              ? 'You haven\'t created any predictions yet'
+              : 'No predictions match the filters'}
           </p>
           {predictions.length === 0 && (
             <button
@@ -355,14 +355,14 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
               className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
             >
               <Plus className="w-5 h-5" />
-              Crear Primera Predicción
+              Create First Prediction
             </button>
           )}
         </div>
       ) : loadingMetadata ? (
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mb-4" />
-          <p className="text-slate-400">Cargando información de predicciones...</p>
+          <p className="text-slate-400">Loading prediction information...</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -382,7 +382,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
                 onClick={() => onViewPrediction(pred.id)}
                 className="bg-slate-900/50 border border-slate-800/50 rounded-xl overflow-hidden hover:bg-slate-900/70 hover:border-slate-700/50 transition-all cursor-pointer flex"
               >
-                {/* Imagen de la predicción - Izquierda */}
+                {/* Prediction image - Left */}
                 <div className="relative w-80 h-64 bg-slate-800/50 flex-shrink-0">
                   <img
                     src={imageUrl}
@@ -398,16 +398,16 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
                   
                 </div>
 
-                {/* Contenido - Derecha */}
+                {/* Content - Right */}
                 <div className="flex-1 flex flex-col justify-between p-6 min-w-0">
-                  {/* Sección superior */}
+                  {/* Upper section */}
                   <div className="space-y-4">
-                    {/* Título y Estado */}
+                    {/* Title and Status */}
                     <div className="flex items-start justify-between gap-4">
                       <h3 className="text-xl font-bold text-slate-100 line-clamp-2 leading-tight flex-1">
                       {pred.title}
                     </h3>
-                      {/* Estado en esquina superior derecha */}
+                      {/* Status in top right corner */}
                       <div className="flex-shrink-0">
                         <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
                           isActive
@@ -420,7 +420,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
                   </div>
                 </div>
 
-                    {/* Metadata: Categoría y Fecha */}
+                    {/* Metadata: Category and Date */}
                     <div className="flex items-center gap-3 text-sm">
                       <span className="px-3 py-1 bg-slate-800/50 border border-slate-700/50 rounded-lg text-slate-300">
                         {categoryNames[primaryTag] || primaryTag}
@@ -430,7 +430,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
                       </span>
                     </div>
 
-                    {/* Opciones de voto con barras de progreso */}
+                    {/* Voting options with progress bars */}
                     {options.length > 0 && (
                       <div className="space-y-3">
                         {options.map((option, index) => {
@@ -440,17 +440,17 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
                           
                           return (
                             <div key={index} className="space-y-1.5">
-                              {/* Texto de la opción con porcentaje */}
+                              {/* Option text with percentage */}
                               <div className="flex items-center justify-between">
                                 <span className={`${color.text} text-sm font-medium`}>
                                   {option.description}
                                 </span>
                                 <span className="text-slate-400 text-sm">
-                                  {percentage.toFixed(1)}% ({formatNumber(option.totalBettors)} votos)
+                                  {percentage.toFixed(1)}% ({formatNumber(option.totalBettors)} votes)
                                 </span>
                               </div>
                               
-                              {/* Barra de progreso */}
+                              {/* Progress bar */}
                               <div className="relative w-full h-2 bg-slate-800/50 rounded-full overflow-hidden">
                                 <div 
                                   className={`h-full ${color.bgBar} transition-all rounded-full`}
@@ -464,43 +464,43 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
                     )}
                   </div>
 
-                  {/* Sección inferior: Métricas y acciones */}
+                  {/* Bottom section: Metrics and actions */}
                   <div className="flex items-end justify-between pt-4 border-t border-slate-800/50">
-                    {/* Métricas de engagement - Izquierda */}
+                    {/* Engagement metrics - Left */}
                     <div className="flex items-center gap-4 text-sm text-slate-400">
                       <div className="flex items-center gap-1.5">
                         <Users className="w-4 h-4" />
-                        <span>{formatNumber(pred.participantCount)} participantes</span>
+                        <span>{formatNumber(pred.participantCount)} participants</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <TrendingUp className="w-4 h-4" />
-                        <span>{formatNumber(Math.floor(totalPool))} {tokenSymbol} apostados</span>
+                        <span>{formatNumber(Math.floor(totalPool))} {tokenSymbol} bet</span>
                       </div>
 
                       <div className="flex items-center gap-1.5 text-emerald-400">
                       <TrendingUp className="w-4 h-4" />
-                        <span>+0 {tokenSymbol} ganados</span>
+                        <span>+0 {tokenSymbol} earned</span>
                     </div>
                   </div>
 
-                    {/* Fecha de fin y acciones - Derecha */}
+                    {/* End date and actions - Right */}
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <div className="text-slate-400 text-xs mb-0.5">Finaliza</div>
+                        <div className="text-slate-400 text-xs mb-0.5">Ends</div>
                         <div className="text-slate-300 text-sm font-medium">
                           {formatEndDate(pred.closesAt)}
                   </div>
                 </div>
 
-                      {/* Iconos de acción - No implementados todavía 
+                      {/* Action icons - Not implemented yet 
                       <div className="flex items-center gap-2">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            // TODO: Implementar compartir
+                            // TODO: Implement share
                           }}
                           className="p-2 hover:bg-slate-800/50 rounded-lg transition-colors text-slate-400 hover:text-slate-200"
-                          title="Compartir"
+                          title="Share"
                         >
                           <Share2 className="w-4 h-4" />
                         </button>
@@ -510,7 +510,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
                             onViewPrediction(pred.id);
                           }}
                           className="p-2 hover:bg-slate-800/50 rounded-lg transition-colors text-slate-400 hover:text-slate-200"
-                          title="Editar"
+                          title="Edit"
                         >
                           <Edit className="w-4 h-4" />
                     </button>

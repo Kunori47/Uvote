@@ -136,7 +136,7 @@ export const useWallet = () => {
     });
   };
 
-  // Refrescar balance manualmente
+  // Manually refresh balance
   const refreshBalance = async () => {
     if (!isWalletInstalled() || !state.address) return;
     
@@ -145,18 +145,18 @@ export const useWallet = () => {
       const balanceBigInt = await provider.getBalance(state.address);
       const balance = ethers.formatEther(balanceBigInt);
       
-      console.log('🔄 Balance refrescado:', balance, 'ETH');
+      console.log('🔄 Balance refreshed:', balance, 'ETH');
       
       setState(prev => ({
         ...prev,
         balance,
       }));
     } catch (error) {
-      console.error('Error refrescando balance:', error);
+      console.error('Error refreshing balance:', error);
     }
   };
 
-  // Escuchar cambios de cuenta
+  // Listen for account changes
   useEffect(() => {
     if (!isWalletInstalled()) return;
 
@@ -164,7 +164,7 @@ export const useWallet = () => {
       if (accounts.length === 0) {
         disconnect();
       } else {
-        // Actualizar con la nueva cuenta sin llamar a connect() completo
+        // Update with new account without calling full connect()
         try {
           const provider = new ethers.BrowserProvider(window.ethereum!);
           const signer = await provider.getSigner();
@@ -179,13 +179,13 @@ export const useWallet = () => {
             isConnected: true,
           }));
         } catch (error) {
-          console.error('Error actualizando cuenta:', error);
+          console.error('Error updating account:', error);
         }
       }
     };
 
     const handleChainChanged = () => {
-      // Recargar la página cuando cambia la red
+      // Reload page when network changes
       window.location.reload();
     };
 
@@ -198,30 +198,30 @@ export const useWallet = () => {
     };
   }, []);
 
-  // Auto-conectar si ya estaba conectado
+  // Auto-connect if already connected
   useEffect(() => {
     const autoConnect = async () => {
       if (!isWalletInstalled()) return;
-      if (state.isConnected) return; // Ya está conectado, no hacer nada
+      if (state.isConnected) return; // Already connected, do nothing
 
       try {
         const provider = new ethers.BrowserProvider(window.ethereum);
         const accounts = await provider.send('eth_accounts', []);
         
         if (accounts.length > 0) {
-          // Verificar ChainID y cambiar si es necesario
+          // Verify ChainID and switch if necessary
           const chainId = await provider.send('eth_chainId', []);
           const targetChainId = `0x${NETWORK_CONFIG.chainId.toString(16)}`;
           console.log('🔄 Auto-connect - ChainID:', chainId, '(esperado:', targetChainId, ')');
           
-          // Si no está en la red correcta, cambiar
+          // If not on correct network, switch
           if (chainId !== targetChainId) {
-            console.log('⚠️  Red incorrecta. Cambiando a Hardhat Local...');
-            console.log('   ChainID actual:', chainId, '| Esperado:', targetChainId);
+            console.log('⚠️  Wrong network. Switching to Hardhat Local...');
+            console.log('   Current ChainID:', chainId, '| Expected:', targetChainId);
             
             try {
-              // Primero intentar agregar la red (por si no existe)
-              console.log('📝 Agregando/configurando red Hardhat Local...');
+              // First try to add network (in case it doesn't exist)
+              console.log('📝 Adding/configuring Hardhat Local network...');
               try {
                 await provider.send('wallet_addEthereumChain', [
                   {
@@ -229,73 +229,73 @@ export const useWallet = () => {
                     chainName: NETWORK_CONFIG.chainName,
                     rpcUrls: [NETWORK_CONFIG.rpcUrl],
                     nativeCurrency: NETWORK_CONFIG.nativeCurrency,
-                    blockExplorerUrls: [], // Sin explorer para red local
+                    blockExplorerUrls: [], // No explorer for local network
                   }
                 ]);
-                console.log('✅ Red agregada exitosamente');
+                console.log('✅ Network added successfully');
                 await new Promise(resolve => setTimeout(resolve, 500));
               } catch (addError: any) {
-                // Si la red ya existe, está bien, continuamos
+                // If network already exists, it's fine, we continue
                 if (addError.code === -32602 || addError.message?.includes('already')) {
-                  console.log('ℹ️  La red ya existe, continuando...');
+                  console.log('ℹ️  Network already exists, continuing...');
                 } else {
-                  console.warn('⚠️  No se pudo agregar la red (puede que ya exista):', addError.message);
+                  console.warn('⚠️  Could not add network (may already exist):', addError.message);
                 }
               }
               
-              // Ahora intentar cambiar a la red
-              console.log('🔄 Cambiando a red Hardhat Local...');
+              // Now try to switch to network
+              console.log('🔄 Switching to Hardhat Local network...');
               await provider.send('wallet_switchEthereumChain', [
                 { chainId: targetChainId }
               ]);
-              console.log('✅ Cambio de red solicitado');
+              console.log('✅ Network switch requested');
               
-              // Esperar más tiempo para que SubWallet procese el cambio
+              // Wait more time for SubWallet to process the change
               await new Promise(resolve => setTimeout(resolve, 2000));
               
-              // Verificar que el cambio se completó
+              // Verify the change was completed
               const newChainId = await provider.send('eth_chainId', []);
               if (newChainId === targetChainId) {
-                console.log('✅ Cambio de red completado exitosamente');
+                console.log('✅ Network switch completed successfully');
               } else {
-                console.warn('⚠️  El ChainID aún no coincide. Puede que necesites confirmar en SubWallet.');
+                console.warn('⚠️  ChainID still doesn\'t match. You may need to confirm in SubWallet.');
               }
             } catch (switchError: any) {
-              console.error('❌ Error cambiando de red:', switchError);
-              // Continuar de todos modos para mostrar el error al usuario
+              console.error('❌ Error switching network:', switchError);
+              // Continue anyway to show error to user
             }
           }
           
-          // Actualizar el estado
+          // Update state
           const signer = await provider.getSigner();
           const address = await signer.getAddress();
           const balanceBigInt = await provider.getBalance(address);
           const balance = ethers.formatEther(balanceBigInt);
           
           console.log('💰 Auto-connect - Balance:', balance, 'ETH');
-          console.log('📍 Auto-connect - Dirección:', address);
+          console.log('📍 Auto-connect - Address:', address);
           
           setState({
             address,
             balance,
             isConnected: true,
             isConnecting: false,
-            error: chainId !== targetChainId ? 'Red incorrecta. Cambia a Hardhat Local en SubWallet.' : null,
+            error: chainId !== targetChainId ? 'Wrong network. Switch to Hardhat Local in SubWallet.' : null,
           });
         }
       } catch (error) {
-        console.error('Error en auto-connect:', error);
-        // No establecer error en auto-connect, solo en conexión manual
+        console.error('Error in auto-connect:', error);
+        // Don't set error in auto-connect, only in manual connection
       }
     };
 
     autoConnect();
-  }, []); // Solo ejecutar una vez al montar
+  }, []); // Only run once on mount
 
-  // Detectar qué wallet está instalada
+  // Detect which wallet is installed
   const getWalletType = () => {
     if (!isWalletInstalled()) return null;
-    // SubWallet se identifica como SubWallet en window.ethereum
+    // SubWallet identifies as SubWallet in window.ethereum
     if (window.ethereum?.isSubWallet) return 'SubWallet';
     if (window.ethereum?.isMetaMask) return 'MetaMask';
     return 'Unknown';

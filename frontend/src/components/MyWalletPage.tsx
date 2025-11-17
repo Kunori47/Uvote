@@ -26,9 +26,9 @@ interface CreatorCoin {
   coinSymbol: string;
   coinImage: string;
   coinsOwned: number;
-  coinValue: number; // Valor de cada moneda
-  totalValue: number; // Valor total de las monedas que posee
-  totalInvested: number; // Lo que invirtió originalmente
+  coinValue: number; // Value of each coin
+  totalValue: number; // Total value of coins owned
+  totalInvested: number; // Original investment amount
   category: string;
   priceHistory: PriceChange[];
   description: string;
@@ -49,7 +49,7 @@ const mockCoins: CreatorCoin[] = [
     totalValue: 2500,
     totalInvested: 2000,
     category: "Gaming",
-    description: "Moneda oficial del creador de contenido Ibai. Invierte en el futuro del gaming y entretenimiento.",
+    description: "Official creator token for Ibai. Invest in the future of gaming and entertainment.",
     lastPriceChange: "2025-10-15",
     priceHistory: [
       { date: "2024-11-11", price: 2.5 },
@@ -72,7 +72,7 @@ const mockCoins: CreatorCoin[] = [
     totalValue: 2660,
     totalInvested: 2800,
     category: "Gaming",
-    description: "Apoya a uno de los creadores más influyentes del gaming en español.",
+    description: "Support one of the most influential gaming creators in Spanish.",
     lastPriceChange: "2025-10-20",
     priceHistory: [
       { date: "2024-11-11", price: 3.8 },
@@ -95,7 +95,7 @@ const mockCoins: CreatorCoin[] = [
     totalValue: 2100,
     totalInvested: 1800,
     category: "Entertainment",
-    description: "Invierte en el rey del entretenimiento y el humor en YouTube.",
+    description: "Invest in the king of entertainment and humor on YouTube.",
     lastPriceChange: "2025-09-28",
     priceHistory: [
       { date: "2024-11-11", price: 4.2 },
@@ -118,7 +118,7 @@ const mockCoins: CreatorCoin[] = [
     totalValue: 1530,
     totalInvested: 1700,
     category: "Gaming",
-    description: "La nueva generación del gaming. Apoya a ElSpreen en su camino.",
+    description: "The new generation of gaming. Support ElSpreen on his journey.",
     lastPriceChange: "2025-10-05",
     priceHistory: [
       { date: "2024-11-11", price: 1.8 },
@@ -141,7 +141,7 @@ const mockCoins: CreatorCoin[] = [
     totalValue: 1530,
     totalInvested: 1500,
     category: "Comedy",
-    description: "Invierte en uno de los pioneros del contenido en español.",
+    description: "Invest in one of the pioneers of Spanish content.",
     lastPriceChange: "2025-10-10",
     priceHistory: [
       { date: "2024-11-11", price: 5.1 },
@@ -164,7 +164,7 @@ const mockCoins: CreatorCoin[] = [
     totalValue: 1305,
     totalInvested: 1400,
     category: "Gaming",
-    description: "La moneda del CoscuArmy. Únete a la comunidad.",
+    description: "The CoscuArmy coin. Join the community.",
     lastPriceChange: "2025-09-18",
     priceHistory: [
       { date: "2024-11-11", price: 2.9 },
@@ -187,7 +187,7 @@ const mockCoins: CreatorCoin[] = [
     totalValue: 1170,
     totalInvested: 1200,
     category: "Entertainment",
-    description: "Apoya a Luzu en sus proyectos de entretenimiento.",
+    description: "Support Luzu in his entertainment projects.",
     lastPriceChange: "2025-10-22",
     priceHistory: [
       { date: "2024-11-11", price: 1.95 },
@@ -210,7 +210,7 @@ const mockCoins: CreatorCoin[] = [
     totalValue: 640,
     totalInvested: 600,
     category: "Sports",
-    description: "Invierte en el futuro del contenido deportivo.",
+    description: "Invest in the future of sports content.",
     lastPriceChange: "2025-10-01",
     priceHistory: [
       { date: "2024-11-11", price: 3.2 },
@@ -231,15 +231,15 @@ type SortOption =
   | "change-asc";
 
 const sortOptions = [
-  { id: "coins-desc" as SortOption, label: "Más monedas" },
-  { id: "coins-asc" as SortOption, label: "Menos monedas" },
-  { id: "value-desc" as SortOption, label: "Mayor valor" },
-  { id: "value-asc" as SortOption, label: "Menor valor" },
+  { id: "coins-desc" as SortOption, label: "Most coins" },
+  { id: "coins-asc" as SortOption, label: "Fewest coins" },
+  { id: "value-desc" as SortOption, label: "Highest value" },
+  { id: "value-asc" as SortOption, label: "Lowest value" },
   {
     id: "change-desc" as SortOption,
-    label: "Mayor ganancia %",
+    label: "Highest gain %",
   },
-  { id: "change-asc" as SortOption, label: "Mayor pérdida %" },
+  { id: "change-asc" as SortOption, label: "Highest loss %" },
 ];
 
 interface MyWalletPageProps {
@@ -251,16 +251,16 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSortMenu, setShowSortMenu] = useState(false);
   
-  // Obtener wallet y tokens reales
+  // Get wallet and real tokens
   const { address, isConnected } = useWallet();
   const { tokens: userTokens, loading, error } = useUserTokens(address);
   
-  // Estados para metadata de tokens desde Supabase
+  // States for token metadata from Supabase
   const [tokenImages, setTokenImages] = useState<Record<string, string>>({});
   const [creatorProfiles, setCreatorProfiles] = useState<Record<string, { displayName: string; avatarUrl: string }>>({});
   const [loadingMetadata, setLoadingMetadata] = useState(false);
 
-  // Cargar imágenes de monedas y perfiles de creadores desde Supabase
+  // Load coin images and creator profiles from Supabase
   useEffect(() => {
     const loadTokenMetadata = async () => {
       if (userTokens.length === 0) {
@@ -273,19 +273,19 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
         const images: Record<string, string> = {};
         const profiles: Record<string, { displayName: string; avatarUrl: string }> = {};
         
-        // Cargar metadata para cada token
+        // Load metadata for each token
         for (const token of userTokens) {
-          // Obtener imagen de la moneda
+          // Get coin image
           try {
             const tokenData = await apiService.getToken(token.tokenAddress);
             if (tokenData?.coin_image_url) {
               images[token.tokenAddress] = tokenData.coin_image_url;
             }
           } catch (err) {
-            console.error(`Error cargando imagen del token ${token.tokenAddress}:`, err);
+            console.error(`Error loading image for token ${token.tokenAddress}:`, err);
           }
           
-          // Obtener perfil del creador (solo si no lo hemos cargado ya)
+          // Get creator profile (only if we haven't loaded it yet)
           if (!profiles[token.creatorAddress]) {
             try {
               const creatorData = await apiService.getUser(token.creatorAddress);
@@ -301,7 +301,7 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
                 };
               }
             } catch (err) {
-              console.error(`Error cargando perfil del creador ${token.creatorAddress}:`, err);
+              console.error(`Error loading creator profile ${token.creatorAddress}:`, err);
               profiles[token.creatorAddress] = {
                 displayName: `${token.creatorAddress.slice(0, 6)}...${token.creatorAddress.slice(-4)}`,
                 avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${token.creatorAddress}`,
@@ -313,7 +313,7 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
         setTokenImages(images);
         setCreatorProfiles(profiles);
       } catch (err) {
-        console.error('Error cargando metadata de tokens:', err);
+        console.error('Error loading token metadata:', err);
       } finally {
         setLoadingMetadata(false);
       }
@@ -322,7 +322,7 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
     loadTokenMetadata();
   }, [userTokens]);
 
-  // Statistics (calculadas desde tokens reales)
+  // Statistics (calculated from real tokens)
   const stats = {
     totalCreators: userTokens.length,
     totalCoins: userTokens.reduce(
@@ -333,13 +333,13 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
       (sum, token) => sum + parseFloat(token.totalValue),
       0,
     ),
-    totalInvested: 0, // TODO: Calcular desde histórico (requiere DB o eventos)
+    totalInvested: 0, // TODO: Calculate from history (requires DB or events)
   };
 
-  const profitLoss = 0; // TODO: Calcular cuando tengamos histórico
+  const profitLoss = 0; // TODO: Calculate when we have history
   const profitLossPercentage = "0.00";
 
-  // Filter and sort tokens reales
+  // Filter and sort real tokens
   const filteredAndSortedTokens = userTokens
     .filter((token) =>
       token.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -374,7 +374,7 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
             </div>
             <div>
               <div className="text-slate-400 text-sm">
-                Valor Total del Portfolio
+                Total Portfolio Value
               </div>
               <div className="text-slate-100 text-2xl">
                 {stats.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} DOT
@@ -385,7 +385,7 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div>
               <div className="text-slate-500 text-sm mb-1">
-                Creadores
+                Creators
               </div>
               <div className="text-slate-100">
                 {stats.totalCreators}
@@ -393,7 +393,7 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
             </div>
             <div>
               <div className="text-slate-500 text-sm mb-1">
-                Total Monedas
+                Total Coins
               </div>
               <div className="text-slate-100">
                 {stats.totalCoins.toLocaleString()}
@@ -401,7 +401,7 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
             </div>
             <div>
               <div className="text-slate-500 text-sm mb-1">
-                Invertido
+                Invested
               </div>
               <div className="text-slate-100">
                 {stats.totalInvested.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} DOT
@@ -409,7 +409,7 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
             </div>
             <div>
               <div className="text-slate-500 text-sm mb-1">
-                Ganancia/Pérdida
+                Gain/Loss
               </div>
               <div
                 className={
@@ -432,7 +432,7 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
               type="text"
-              placeholder="Buscar creador..."
+              placeholder="Search creators..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-slate-900/50 border border-slate-800/50 rounded-xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50 transition-colors"
@@ -446,7 +446,7 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
               className="flex items-center gap-2 px-4 py-2 bg-slate-900/50 border border-slate-800/50 rounded-xl text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 transition-all whitespace-nowrap"
             >
               <ArrowUpDown className="w-4 h-4" />
-              <span>Ordenar</span>
+              <span>Sort</span>
             </button>
 
             {showSortMenu && (
@@ -478,28 +478,28 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
         {!isConnected ? (
           <div className="text-center py-12">
             <Wallet className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-            <p className="text-slate-400 mb-2">Conecta tu wallet para ver tus tokens</p>
-            <p className="text-slate-500 text-sm">Usa SubWallet o MetaMask</p>
+            <p className="text-slate-400 mb-2">Connect your wallet to see your tokens</p>
+            <p className="text-slate-500 text-sm">Use SubWallet or MetaMask</p>
           </div>
         ) : loading || loadingMetadata ? (
           <div className="text-center py-12">
             <Loader2 className="w-8 h-8 text-emerald-400 animate-spin mx-auto mb-4" />
             <p className="text-slate-400">
-              {loading ? 'Cargando tus tokens desde blockchain...' : 'Cargando información de creadores...'}
+              {loading ? 'Loading your tokens from blockchain...' : 'Loading creator information...'}
             </p>
           </div>
         ) : error ? (
           <div className="text-center py-12">
-            <p className="text-red-400 mb-2">Error al cargar tokens</p>
-            <p className="text-slate-500 text-sm">{error}</p>
+            <p className="text-slate-400 mb-2">You don't have any creator tokens</p>
+            <p className="text-slate-500 text-sm">Start by buying tokens from creators you follow</p>
           </div>
         ) : filteredAndSortedTokens.length === 0 ? (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
               <Coins className="w-8 h-8 text-slate-400" />
             </div>
-            <p className="text-slate-400 mb-2 text-lg">No tienes tokens de creadores aún</p>
-            <p className="text-slate-500 text-sm mb-4">Explora creadores y compra sus tokens para empezar</p>
+            <p className="text-slate-400 mb-2 text-lg">You don't have creator tokens yet</p>
+            <p className="text-slate-500 text-sm mb-4">Explore creators and buy their tokens to get started</p>
           </div>
         ) : (
           filteredAndSortedTokens.map((token) => {
@@ -553,7 +553,7 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
                   {/* Coins Owned - Prominent Display */}
                   <div className="flex-shrink-0 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
                     <div className="text-emerald-400/70 text-xs mb-0.5">
-                      Tengo
+                      I Have
                     </div>
                     <div className="text-emerald-400 text-xl">
                       {parseFloat(token.balance).toLocaleString(undefined, { 
@@ -571,7 +571,7 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
                     {/* Coin Value */}
                     <div>
                       <div className="text-slate-500 text-sm mb-1">
-                        Precio
+                        Price
                       </div>
                       <div className="text-slate-200">
                         {parseFloat(token.price).toFixed(4)} DOT
@@ -581,7 +581,7 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
                     {/* Total Value */}
                     <div>
                       <div className="text-slate-500 text-sm mb-1">
-                        Valor Total
+                        Total Value
                       </div>
                       <div className="text-slate-100">
                         {parseFloat(token.totalValue).toFixed(4)} DOT
@@ -591,7 +591,7 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
                     {/* Contract Address */}
                     <div>
                       <div className="text-slate-500 text-sm mb-1">
-                        Contrato
+                        Contract
                       </div>
                       <div className="text-slate-400 text-xs font-mono">
                         {token.tokenAddress.slice(0, 6)}...{token.tokenAddress.slice(-4)}

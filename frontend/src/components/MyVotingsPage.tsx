@@ -7,10 +7,10 @@ import { apiService } from '../lib/apiService';
 import { CONTRACT_ADDRESSES, NETWORK_CONFIG } from '../lib/contracts';
 import { predictionMarketService } from '../lib/contractService';
 
-const STATUS_NAMES = ['Activa', 'Cerrada', 'Cooldown', 'En Revisión', 'Confirmada', 'Disputada', 'Cancelada'];
+const STATUS_NAMES = ['Active', 'Closed', 'Cooldown', 'In Review', 'Confirmed', 'Disputed', 'Cancelled'];
 const STATUS_COLORS = ['blue', 'slate', 'yellow', 'orange', 'emerald', 'red', 'gray'];
 
-// Colores de opciones (igual que en PredictionCard)
+// Option colors (same as in PredictionCard)
 const optionColors = [
   { border: 'border-emerald-500', text: 'text-emerald-400', bg: 'bg-emerald-600/20', bgBorder: 'bg-emerald-500/40' },
   { border: 'border-red-500', text: 'text-red-400', bg: 'bg-red-600/20', bgBorder: 'bg-red-500/40' },
@@ -20,30 +20,30 @@ const optionColors = [
   { border: 'border-purple-500', text: 'text-purple-400', bg: 'bg-purple-600/20', bgBorder: 'bg-purple-500/40' },
 ];
 
-// Helper para obtener color de opción (igual que en PredictionCard)
+// Helper to get option color (same as in PredictionCard)
 const getColorForOption = (label: string, index: number) => {
   const normalizedLabel = label.toLowerCase();
-  if (normalizedLabel === 'sí' || normalizedLabel === 'si') {
-    return optionColors[0]; // Verde para Sí
+  if (normalizedLabel === 'yes' || normalizedLabel === 'si') {
+    return optionColors[0]; // Green for Yes
   }
   if (normalizedLabel === 'no') {
-    return optionColors[1]; // Rojo para No
+    return optionColors[1]; // Red for No
   }
   return optionColors[index % optionColors.length];
 };
 
 const statusFilters = [
-  { id: 'all', label: 'Todas' },
-  { id: 'active', label: 'Activas (0-1)' },
-  { id: 'finished', label: 'Finalizadas (4)' },
-  { id: 'cooldown', label: 'En Cooldown (2)' },
+  { id: 'all', label: 'All' },
+  { id: 'active', label: 'Active (0-1)' },
+  { id: 'finished', label: 'Finished (4)' },
+  { id: 'cooldown', label: 'In Cooldown (2)' },
 ];
 
 const resultFilters = [
-  { id: 'all', label: 'Todos' },
-  { id: 'won', label: 'Ganadas' },
-  { id: 'lost', label: 'Perdidas' },
-  { id: 'pending', label: 'Pendientes' },
+  { id: 'all', label: 'All' },
+  { id: 'won', label: 'Won' },
+  { id: 'lost', label: 'Lost' },
+  { id: 'pending', label: 'Pending' },
 ];
 
 interface MyVotingsPageProps {
@@ -62,17 +62,17 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
   const [predictionOptions, setPredictionOptions] = useState<Record<string, Array<{ description: string; totalAmount: string }>>>({});
   const [loadingImages, setLoadingImages] = useState(false);
 
-  // Filtrar apuestas
+  // Filter bets
   const filteredBets = useMemo(() => {
     return bets.filter((bet) => {
-      // Filtro de estado
+      // Status filter
       if (statusFilter !== 'all') {
         if (statusFilter === 'active' && bet.predictionStatus > 1) return false;
         if (statusFilter === 'finished' && bet.predictionStatus !== 4) return false;
         if (statusFilter === 'cooldown' && bet.predictionStatus !== 2) return false;
       }
 
-      // Filtro de resultado
+      // Result filter
       if (resultFilter !== 'all') {
         if (resultFilter === 'won' && !bet.canClaim) return false;
         if (resultFilter === 'lost' && (bet.predictionStatus !== 4 || bet.canClaim)) return false;
@@ -83,7 +83,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
     });
   }, [bets, statusFilter, resultFilter]);
 
-  // Estadísticas
+  // Statistics
   const stats = useMemo(() => {
     const totalInvested = bets.reduce((sum, bet) => sum + parseFloat(bet.totalBetAmount), 0);
     const activeBets = bets.filter(b => b.predictionStatus <= 1).length;
@@ -99,14 +99,14 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
     };
   }, [bets]);
 
-  // Determinar resultado de una apuesta
+  // Determine result of a bet
   const getBetResult = (bet: typeof bets[0]): 'won' | 'lost' | 'pending' => {
     if (bet.predictionStatus < 4) return 'pending';
     if (bet.canClaim) return 'won';
     return 'lost';
   };
 
-  // Cargar imágenes de predicciones
+  // Load prediction images
   useEffect(() => {
     const loadImages = async () => {
       if (bets.length === 0) return;
@@ -132,7 +132,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
             console.error(`Error loading image for prediction ${bet.predictionId}:`, err);
           }
 
-          // Cargar opciones para predicciones en cooldown o confirmadas (con 2 opciones)
+          // Load options for predictions in cooldown or confirmed (with 2 options)
           if ((bet.predictionStatus === 2 || bet.predictionStatus === 4) && bet.predictionStatus >= 0) {
             try {
               const options = await predictionMarketService.getPredictionOptions(bet.predictionId);
@@ -147,7 +147,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
             }
           }
 
-          // Calcular retorno potencial para predicciones activas
+          // Calculate potential return for active predictions
           if (bet.predictionStatus <= 1) {
             try {
               const result = await predictionMarketService.calculatePotentialWinnings(
@@ -160,7 +160,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
               console.error(`Error calculating potential return for prediction ${bet.predictionId}:`, err);
             }
           } else if (bet.predictionStatus === 4 && bet.canClaim) {
-            // Para predicciones finalizadas ganadas, calcular retorno real
+            // For finished winning predictions, calculate actual return
             try {
               const result = await predictionMarketService.calculateClaimableReward(
                 bet.predictionId,
@@ -185,7 +185,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
     loadImages();
   }, [bets, address]);
 
-  // Formatear fecha
+  // Format date
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleDateString('es-ES', {
       year: 'numeric',
@@ -194,7 +194,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
     });
   };
 
-  // Formatear fecha completa para fecha de fin
+  // Format full date for end date
   const formatFullDate = (timestamp: number) => {
     if (timestamp === 0 || timestamp >= 2**256 - 1) return '∞';
     return new Date(timestamp * 1000).toLocaleDateString('es-ES', {
@@ -204,7 +204,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
     });
   };
 
-  // Formatear número con puntos
+  // Format number with dots
   const formatNumber = (num: number) => {
     return num.toLocaleString('es-ES');
   };
@@ -214,8 +214,8 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
       <div className="p-6">
         <div className="flex flex-col items-center justify-center py-20">
           <Wallet className="w-16 h-16 text-slate-400 mb-4" />
-          <h2 className="text-2xl font-bold text-slate-100 mb-2">Wallet no conectada</h2>
-          <p className="text-slate-400">Conecta tu wallet para ver tus apuestas</p>
+          <h2 className="text-2xl font-bold text-slate-100 mb-2">Wallet not connected</h2>
+          <p className="text-slate-400">Connect your wallet to see your bets</p>
         </div>
       </div>
     );
@@ -226,7 +226,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
       <div className="p-6">
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mb-4" />
-          <p className="text-slate-400">Cargando tus apuestas...</p>
+          <p className="text-slate-400">Loading your bets...</p>
         </div>
       </div>
     );
@@ -248,7 +248,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
     <div className="p-6">
       {/* Header with stats */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-100 mb-6">Mis Votaciones</h1>
+        <h1 className="text-3xl font-bold text-slate-100 mb-6">My Votes</h1>
         
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4">
@@ -256,19 +256,19 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
             <div className="text-2xl font-bold text-slate-100">{stats.total}</div>
           </div>
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4">
-            <div className="text-slate-500 text-sm mb-1">Activas</div>
+            <div className="text-slate-500 text-sm mb-1">Active</div>
             <div className="text-2xl font-bold text-blue-400">{stats.active}</div>
           </div>
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4">
-            <div className="text-slate-500 text-sm mb-1">Ganadas</div>
+            <div className="text-slate-500 text-sm mb-1">Won</div>
             <div className="text-2xl font-bold text-emerald-400">{stats.won}</div>
           </div>
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4">
-            <div className="text-slate-500 text-sm mb-1">Perdidas</div>
+            <div className="text-slate-500 text-sm mb-1">Lost</div>
             <div className="text-2xl font-bold text-red-400">{stats.lost}</div>
           </div>
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4">
-            <div className="text-slate-500 text-sm mb-1">Total Apostado</div>
+            <div className="text-slate-500 text-sm mb-1">Total Bet</div>
             <div className="text-2xl font-bold text-slate-100">{stats.totalInvested}</div>
           </div>
         </div>
@@ -280,7 +280,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
             className="flex items-center gap-2 px-4 py-2 bg-slate-900/50 border border-slate-800/50 rounded-xl text-slate-300 hover:bg-slate-800/50 hover:text-slate-100 transition-all"
           >
             <Filter className="w-4 h-4" />
-            Filtros
+            Filters
           </button>
           
           {(statusFilter !== 'all' || resultFilter !== 'all') && (
@@ -291,7 +291,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
               }}
               className="text-sm text-emerald-400 hover:text-emerald-300"
             >
-              Limpiar filtros
+              Clear filters
             </button>
           )}
         </div>
@@ -300,7 +300,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
         {showFilters && (
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4 mb-4 space-y-4">
             <div>
-              <div className="text-slate-400 text-sm mb-2">Estado</div>
+              <div className="text-slate-400 text-sm mb-2">Status</div>
               <div className="flex flex-wrap gap-2">
                 {statusFilters.map((filter) => (
                   <button
@@ -319,7 +319,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
             </div>
             
             <div>
-              <div className="text-slate-400 text-sm mb-2">Resultado</div>
+              <div className="text-slate-400 text-sm mb-2">Result</div>
               <div className="flex flex-wrap gap-2">
                 {resultFilters.map((filter) => (
                   <button
@@ -344,11 +344,11 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
       {filteredBets.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20">
           <Trophy className="w-16 h-16 text-slate-600 mb-4" />
-          <h3 className="text-xl font-bold text-slate-300 mb-2">No hay apuestas</h3>
+          <h3 className="text-xl font-bold text-slate-300 mb-2">No bets</h3>
           <p className="text-slate-500">
             {bets.length === 0 
-              ? 'Aún no has apostado en ninguna predicción'
-              : 'No hay apuestas que coincidan con los filtros'}
+              ? 'You haven\'t bet on any prediction yet'
+              : 'No bets match the filters'}
           </p>
         </div>
       ) : (
@@ -369,7 +369,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
                 onClick={() => onViewPrediction(bet.predictionId)}
                 className="bg-slate-900/50 border border-slate-800/50 rounded-xl overflow-hidden hover:bg-slate-900/70 hover:border-slate-700/50 transition-all cursor-pointer flex items-center p-4 gap-4"
               >
-                {/* Imagen de la predicción - Izquierda (encapsulada) */}
+                {/* Prediction image - Left (encapsulated) */}
                 <div className="relative w-40 h-32 bg-slate-800/50 rounded-lg overflow-hidden flex-shrink-0 border border-slate-800/50">
                   <img
                     src={imageUrl}
@@ -401,9 +401,9 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
 
                 {/* Contenido - Derecha */}
                 <div className="flex-1 flex flex-col justify-center min-w-0 gap-3">
-                  {/* Sección superior */}
+                  {/* Top section */}
                   <div className="space-y-2">
-                    {/* Título */}
+                    {/* Title */}
                     <h3 className="text-lg font-bold text-slate-100 line-clamp-1 leading-tight">
                       {bet.predictionTitle}
                     </h3>
@@ -411,8 +411,8 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
                     {/* Votaste y metadata en fila */}
                     <div className="flex items-center gap-4 flex-wrap">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-slate-500 text-sm">Votaste:</span>
-                        {/* Mostrar todas las opciones únicas que votó con sus colores correspondientes */}
+                        <span className="text-slate-500 text-sm">You voted:</span>
+                        {/* Show all unique options voted with their corresponding colors */}
                         {Array.from(new Set(bet.bets.map(b => b.optionIndex))).map((optionIndex, idx) => {
                           const option = bet.bets.find(b => b.optionIndex === optionIndex);
                           if (!option) return null;
@@ -436,27 +436,27 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
                         </div>
                         <div className="flex items-center gap-1.5">
                           <Trophy className="w-4 h-4" />
-                          <span>{formatNumber(bet.totalParticipants)} participantes</span>
+                          <span>{formatNumber(bet.totalParticipants)} participants</span>
                         </div>
                       </div>
                     </div>
                 </div>
 
-                  {/* Detalles de apuesta - Sección inferior */}
+                  {/* Bet details - Bottom section */}
                   <div className="grid grid-cols-3 gap-x-6 gap-y-2 pt-4 border-t border-slate-800/50">
-                    {/* Apostado */}
+                    {/* Bet */}
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-slate-500 text-xs">Apostado</span>
+                      <span className="text-slate-500 text-xs">Bet</span>
                       <span className="text-slate-200 font-semibold text-base">{betAmount.toFixed(2)} {bet.creatorTokenSymbol}</span>
                     </div>
 
-                    {/* Retorno o Retorno potencial */}
+                    {/* Return or Potential Return */}
                     {(() => {
-                      // Determinar si hay opciones cargadas y es una predicción de 2 opciones
+                      // Determine if there are loaded options and it's a 2-option prediction
                       const options = predictionOptions[bet.predictionId];
                       const hasTwoOptions = options && options.length === 2;
                       
-                      // Si hay 2 opciones y la predicción está en cooldown o confirmada, encontrar la más apostada
+                      // If there are 2 options and the prediction is in cooldown or confirmed, find the most bet
                       let mostBetOption: { description: string; totalAmount: string } | null = null;
                       if (hasTwoOptions && (bet.predictionStatus === 2 || bet.predictionStatus === 4)) {
                         mostBetOption = options.reduce((max, opt) => {
@@ -467,7 +467,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
                       return isFinished && bet.canClaim ? (
                         <>
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-slate-500 text-xs">Retorno</span>
+                            <span className="text-slate-500 text-xs">Return</span>
                             <span className="text-emerald-400 font-semibold text-base">{betReturn.toFixed(2)} {bet.creatorTokenSymbol}</span>
                           </div>
                           <div className="flex flex-col gap-0.5">
@@ -480,12 +480,12 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
                             ) : (
                               <span className="text-emerald-400 font-semibold text-base flex items-center gap-1.5">
                                 <CheckCircle2 className="w-4 h-4" />
-                                Ganaste
+                                You won
                               </span>
                             )}
                           </div>
                           <div className="flex flex-col gap-0.5 col-span-3">
-                            <span className="text-slate-500 text-xs">Ganancia/Pérdida</span>
+                            <span className="text-slate-500 text-xs">Profit/Loss</span>
                             <span className="text-emerald-400 font-semibold text-base">+{profit.toFixed(2)} {bet.creatorTokenSymbol}</span>
                           </div>
                         </>
@@ -501,12 +501,12 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
                             ) : (
                               <span className="text-red-400 font-semibold text-base flex items-center gap-1.5">
                                 <XCircle className="w-4 h-4" />
-                                Perdiste
+                                You lost
                               </span>
                             )}
                           </div>
                           <div className="flex flex-col gap-0.5 col-span-2">
-                            <span className="text-slate-500 text-xs">Ganancia/Pérdida</span>
+                            <span className="text-slate-500 text-xs">Profit/Loss</span>
                             <span className="text-red-400 font-semibold text-base">-{betAmount.toFixed(2)} {bet.creatorTokenSymbol}</span>
                           </div>
                         </>
@@ -514,12 +514,12 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
                       <>
                         {returnAmount && (
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-slate-500 text-xs">Retorno potencial</span>
+                            <span className="text-slate-500 text-xs">Potential Return</span>
                             <span className="text-blue-400 font-semibold text-base">{betReturn.toFixed(2)} {bet.creatorTokenSymbol}</span>
                           </div>
                         )}
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-slate-500 text-xs">Finaliza</span>
+                          <span className="text-slate-500 text-xs">Ends</span>
                           <span className="text-slate-300 font-semibold text-base">{formatFullDate(bet.closesAt)}</span>
                         </div>
                       </>

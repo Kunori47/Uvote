@@ -39,7 +39,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
         setLoading(true);
         setError(null);
 
-        console.log('🪙 Cargando información del token:', coinId);
+        console.log('🪙 Loading token information:', coinId);
 
         const info = await creatorTokenService.getTokenInfo(coinId);
         setTokenInfo(info);
@@ -49,10 +49,10 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
           setUserBalance(balance);
         }
 
-        console.log('   ✅ Token cargado:', info.name);
+        console.log('   ✅ Token loaded:', info.name);
       } catch (err: any) {
-        console.error('Error cargando token:', err);
-        setError(err.message || 'Error al cargar información del token');
+        console.error('Error loading token:', err);
+        setError(err.message || 'Error loading token information');
       } finally {
         setLoading(false);
       }
@@ -61,7 +61,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
     loadTokenInfo();
   }, [coinId, address]);
 
-  // Cargar imagen de la moneda y perfil del creador desde Supabase
+  // Load coin image and creator profile from Supabase
   useEffect(() => {
     const loadTokenMetadata = async () => {
       if (!tokenInfo?.creator || !coinId) {
@@ -72,7 +72,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
       try {
         setLoadingMetadata(true);
         
-        // Obtener imagen de la moneda desde Supabase
+        // Get coin image from Supabase
         const tokenData = await apiService.getToken(coinId);
         if (tokenData?.coin_image_url) {
           setCoinImageUrl(tokenData.coin_image_url);
@@ -80,7 +80,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
           setCoinImageUrl(null);
         }
         
-        // Obtener perfil del creador
+        // Get creator profile
         const creatorData = await apiService.getUser(tokenInfo.creator);
         if (creatorData) {
           setCreatorProfile({
@@ -94,7 +94,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
           });
         }
       } catch (err) {
-        console.error('Error cargando metadata del token:', err);
+        console.error('Error loading token metadata:', err);
       } finally {
         setLoadingMetadata(false);
       }
@@ -103,7 +103,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
     loadTokenMetadata();
   }, [tokenInfo?.creator, coinId]);
 
-  // Calculate estimated tokens (cálculo en frontend usando el precio del token)
+  // Calculate estimated tokens (frontend calculation using token price)
   useEffect(() => {
     const calculateEstimate = () => {
       if (!amount || parseFloat(amount) <= 0 || !tokenInfo) {
@@ -113,7 +113,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
 
       try {
         if (action === 'buy') {
-          // Calcular en frontend: fee 1%, luego dividir por precio del token
+          // Frontend calculation: 1% fee, then divide by token price
           const ethAmount = parseFloat(amount);
           const fee = ethAmount * 0.01; // 1% fee
           const amountAfterFee = ethAmount - fee;
@@ -126,7 +126,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
             setEstimatedTokens('0');
           }
         } else {
-          // Para vender: tokens * precio - fee
+          // For selling: tokens * price - fee
           const tokenAmount = parseFloat(amount);
           const tokenPrice = parseFloat(tokenInfo.price);
           const nativeValue = tokenAmount * tokenPrice;
@@ -136,7 +136,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
           setEstimatedTokens(ethToReceive.toFixed(6));
         }
       } catch (err) {
-        console.error('Error calculando estimación:', err);
+        console.error('Error calculating estimate:', err);
         setEstimatedTokens('0');
       }
     };
@@ -147,13 +147,13 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
 
   const handleBuy = async () => {
     if (!amount || parseFloat(amount) <= 0) {
-      setActionError('Ingresa una cantidad válida');
+      setActionError('Enter a valid amount');
       return;
     }
 
     const ethBalance = parseFloat(balance || '0');
     if (parseFloat(amount) > ethBalance) {
-      setActionError(`Balance insuficiente. Tienes ${ethBalance.toFixed(4)} DOT`);
+      setActionError(`Insufficient balance. You have ${ethBalance.toFixed(4)} DOT`);
       return;
     }
 
@@ -161,7 +161,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
       setIsProcessing(true);
       setActionError(null);
 
-      console.log('💰 Comprando tokens...');
+      console.log('💰 Buying tokens...');
       await tokenExchangeService.buyTokens(coinId, amount);
 
       setActionSuccess(true);
@@ -169,14 +169,14 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
       
       setTimeout(() => {
         setActionSuccess(false);
-        // Recargar balance
+        // Reload balance
         if (address) {
           creatorTokenService.getBalance(coinId, address).then(setUserBalance);
         }
       }, 2000);
     } catch (err: any) {
-      console.error('Error comprando tokens:', err);
-      setActionError(err.message || 'Error al comprar tokens');
+      console.error('Error buying tokens:', err);
+      setActionError(err.message || 'Error buying tokens');
     } finally {
       setIsProcessing(false);
     }
@@ -184,13 +184,13 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
 
   const handleSell = async () => {
     if (!amount || parseFloat(amount) <= 0) {
-      setActionError('Ingresa una cantidad válida');
+      setActionError('Enter a valid amount');
       return;
     }
 
     const tokenBalance = parseFloat(userBalance);
     if (parseFloat(amount) > tokenBalance) {
-      setActionError(`Balance insuficiente. Tienes ${tokenBalance.toFixed(2)} ${tokenInfo?.symbol}`);
+      setActionError(`Insufficient balance. You have ${tokenBalance.toFixed(2)} ${tokenInfo?.symbol}`);
       return;
     }
 
@@ -198,18 +198,18 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
       setIsProcessing(true);
       setActionError(null);
 
-      console.log('💸 Vendiendo tokens...');
+      console.log('💸 Selling tokens...');
       
-      // 1. Aprobar tokens al exchange
-      console.log('   Aprobando tokens...');
+      // 1. Approve tokens to exchange
+      console.log('   Approving tokens...');
       await creatorTokenService.approve(
         coinId,
         tokenExchangeService.getContract().target as string,
         amount
       );
       
-      // 2. Vender tokens
-      console.log('   Vendiendo tokens...');
+      // 2. Sell tokens
+      console.log('   Selling tokens...');
       await tokenExchangeService.sellTokens(coinId, amount);
 
       setActionSuccess(true);
@@ -217,14 +217,14 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
       
       setTimeout(() => {
         setActionSuccess(false);
-        // Recargar balance
+        // Reload balance
         if (address) {
           creatorTokenService.getBalance(coinId, address).then(setUserBalance);
         }
       }, 2000);
     } catch (err: any) {
-      console.error('Error vendiendo tokens:', err);
-      setActionError(err.message || 'Error al vender tokens');
+      console.error('Error selling tokens:', err);
+      setActionError(err.message || 'Error selling tokens');
     } finally {
       setIsProcessing(false);
     }
@@ -239,13 +239,13 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
             className="flex items-center gap-2 text-slate-400 hover:text-emerald-400 transition-colors mb-4"
           >
             <ArrowLeft className="w-5 h-5" />
-            Volver
+            Back
           </button>
         </div>
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mb-4" />
           <p className="text-slate-400">
-            {loading ? 'Cargando información del token desde blockchain...' : 'Cargando información del creador...'}
+            {loading ? 'Loading token information from blockchain...' : 'Loading creator information...'}
           </p>
         </div>
       </div>
@@ -258,12 +258,12 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
         <div className="flex flex-col items-center justify-center py-20">
           <AlertCircle className="w-16 h-16 text-red-400 mb-4" />
           <h2 className="text-2xl font-bold text-slate-100 mb-2">Error</h2>
-          <p className="text-red-400 mb-6">{error || 'Token no encontrado'}</p>
+          <p className="text-red-400 mb-6">{error || 'Token not found'}</p>
           <button
             onClick={onBack}
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors"
           >
-            Volver
+            Back
           </button>
         </div>
       </div>
@@ -279,7 +279,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
           className="flex items-center gap-2 text-slate-400 hover:text-emerald-400 transition-colors mb-4"
         >
           <ArrowLeft className="w-5 h-5" />
-          Volver
+          Back
         </button>
       </div>
 
@@ -312,13 +312,13 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div className="bg-slate-800/30 rounded-lg p-4">
-            <div className="text-slate-500 text-sm mb-1">Precio</div>
+            <div className="text-slate-500 text-sm mb-1">Price</div>
             <div className="text-2xl font-bold text-emerald-400">{tokenInfo.price} DOT</div>
-            <div className="text-slate-500 text-xs">por token</div>
+            <div className="text-slate-500 text-xs">per token</div>
           </div>
 
           <div className="bg-slate-800/30 rounded-lg p-4">
-            <div className="text-slate-500 text-sm mb-1">Tu Balance</div>
+            <div className="text-slate-500 text-sm mb-1">Your Balance</div>
             <div className="text-2xl font-bold text-slate-100">
               {parseFloat(userBalance).toFixed(2)}
             </div>
@@ -326,7 +326,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
           </div>
 
           <div className="bg-slate-800/30 rounded-lg p-4">
-            <div className="text-slate-500 text-sm mb-1">Valor Total</div>
+            <div className="text-slate-500 text-sm mb-1">Total Value</div>
             <div className="text-2xl font-bold text-purple-400">
               {(parseFloat(userBalance) * parseFloat(tokenInfo.price)).toFixed(4)}
             </div>
@@ -399,7 +399,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
             <div className="mb-4 p-4 bg-slate-800/30 border border-slate-700/50 rounded-lg">
               <div className="flex items-center justify-between text-sm mb-2">
                 <span className="text-slate-400">
-                  {action === 'buy' ? 'Recibirás aproximadamente:' : 'Recibirás aproximadamente:'}
+                  {action === 'buy' ? 'You will receive approximately:' : 'You will receive approximately:'}
                 </span>
                 <ArrowDownUp className="w-4 h-4 text-slate-500" />
               </div>
@@ -407,7 +407,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
                 {parseFloat(estimatedTokens).toFixed(action === 'buy' ? 2 : 4)} {action === 'buy' ? tokenInfo.symbol : 'DOT'}
               </div>
               <div className="text-slate-500 text-xs mt-1">
-                Fee de plataforma: 1%
+                Platform fee: 1%
               </div>
             </div>
           )}
@@ -424,7 +424,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
             <div className="mb-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-green-400" />
               <p className="text-green-400 text-sm">
-                {action === 'buy' ? '¡Compra exitosa!' : '¡Venta exitosa!'}
+                {action === 'buy' ? 'Purchase successful!' : 'Sale successful!'}
               </p>
             </div>
           )}
@@ -465,7 +465,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
           <div className="mt-6 pt-6 border-t border-slate-800">
             <div className="text-slate-400 text-sm space-y-2">
               <div className="flex justify-between">
-                <span>Precio del token:</span>
+                <span>Token price:</span>
                 <span className="text-slate-100">{tokenInfo.price} DOT</span>
               </div>
               <div className="flex justify-between">
@@ -474,7 +474,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
               </div>
               {action === 'buy' && (
                 <div className="flex justify-between">
-                  <span>Precio final con fee:</span>
+                  <span>Final price with fee:</span>
                   <span className="text-slate-100">
                     {(parseFloat(tokenInfo.price) * 1.01).toFixed(6)} DOT
                   </span>

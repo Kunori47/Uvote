@@ -16,7 +16,7 @@ interface CreateTokenPageProps {
 export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
   const { address, isConnected } = useWallet();
   
-  // Estados del formulario
+  // Form states
   const [name, setName] = useState('');
   const [symbol, setSymbol] = useState('');
   const [initialPrice, setInitialPrice] = useState('0.01');
@@ -24,17 +24,17 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   
-  // Estados de la UI
+  // UI states
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [createdTokenAddress, setCreatedTokenAddress] = useState<string | null>(null);
   
-  // Estado de verificación
+  // Verification state
   const [hasToken, setHasToken] = useState(false);
   const [checkingToken, setCheckingToken] = useState(false);
 
-  // Verificar si el usuario ya tiene un token
+  // Check if user already has a token
   useEffect(() => {
     const checkToken = async () => {
       if (!address || !isConnected) {
@@ -47,14 +47,14 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
         const tokenAddress = await factoryService.getCreatorToken(address);
         if (tokenAddress && tokenAddress !== '0x0000000000000000000000000000000000000000') {
           setHasToken(true);
-          setError('Ya tienes un token de creador');
+          setError('You already have a creator token');
         } else {
           setHasToken(false);
-          setError(null); // Limpiar error si no hay token
+          setError(null); // Clear error if no token
         }
       } catch (err: any) {
-        console.warn('⚠️  Error verificando token (puede ser que el nodo no esté corriendo):', err.message);
-        // No mostrar error al usuario si es un problema de conexión
+        console.warn('⚠️  Error verifying token (node might not be running):', err.message);
+        // Don't show error to user if it's a connection issue
         setHasToken(false);
         setError(null);
       } finally {
@@ -79,25 +79,25 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
   const handleCreate = async () => {
     if (!address) return;
     
-    // Validaciones
+    // Validations
     if (!name.trim()) {
-      setError('El nombre es requerido');
+      setError('Name is required');
       return;
     }
     
     if (!symbol.trim()) {
-      setError('El símbolo es requerido');
+      setError('Symbol is required');
       return;
     }
     
     if (symbol.length > 10) {
-      setError('El símbolo debe tener máximo 10 caracteres');
+      setError('Symbol must have maximum 10 characters');
       return;
     }
     
     const priceNum = parseFloat(initialPrice);
     if (isNaN(priceNum) || priceNum <= 0) {
-      setError('El precio debe ser mayor a 0');
+      setError('Price must be greater than 0');
       return;
     }
     
@@ -105,63 +105,63 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
       setIsCreating(true);
       setError(null);
       
-      // 1) Subir imagen a Supabase Storage (si hay)
+      // 1) Upload image to Supabase Storage (if any)
       let coinImageUrl: string | undefined = undefined;
       if (imageFile) {
         try {
-          console.log('📤 Subiendo imagen de moneda...');
+          console.log('📤 Uploading coin image...');
           const signer = await getSigner();
           const authToken = await generateAuthToken(address, signer);
-          const uploadResult = await apiService.uploadImage(imageFile, 'moneda', authToken);
+          const uploadResult = await apiService.uploadImage(imageFile, 'coin', authToken);
           coinImageUrl = uploadResult.url;
-          console.log('✅ Imagen subida:', coinImageUrl);
+          console.log('✅ Image uploaded:', coinImageUrl);
         } catch (uploadError: any) {
-          console.error('Error subiendo imagen:', uploadError);
-          setError(uploadError?.message || 'Error al subir la imagen de la moneda');
+          console.error('Error uploading image:', uploadError);
+          setError(uploadError?.message || 'Error uploading coin image');
           setIsCreating(false);
           return;
         }
       }
       
-      // 2) Crear token en blockchain
-      console.log('🪙 Creando token de creador...');
+      // 2) Create token on blockchain
+      console.log('🪙 Creating creator token...');
       const result = await factoryService.createCreatorToken(name, symbol, initialPrice);
       
       if (!result.tokenAddress) {
-        throw new Error('No se pudo obtener la dirección del token creado');
+        throw new Error('Could not get created token address');
       }
 
-      console.log('✅ Token creado en blockchain:', result.tokenAddress);
+      console.log('✅ Token created on blockchain:', result.tokenAddress);
       
-      // 3) Autorizar TokenExchange como minter para que los usuarios puedan comprar tokens
-      console.log('🔐 Autorizando TokenExchange como minter...');
+      // 3) Authorize TokenExchange as minter so users can buy tokens
+      console.log('🔐 Authorizing TokenExchange as minter...');
       try {
         const tokenContract = await creatorTokenService.getContractWithSigner(result.tokenAddress);
         const authTx = await tokenContract.setAuthorizedMinter(CONTRACT_ADDRESSES.TokenExchange, true);
-        console.log('   ⏳ Esperando confirmación de autorización...');
+        console.log('   ⏳ Waiting for authorization confirmation...');
         await authTx.wait();
-        console.log('✅ TokenExchange autorizado como minter');
+        console.log('✅ TokenExchange authorized as minter');
       } catch (authErr: any) {
-        console.warn('⚠️  No se pudo autorizar TokenExchange automáticamente:', authErr.message);
-        console.warn('   El token fue creado, pero necesitarás autorizar el Exchange manualmente');
-        // No fallar la creación del token si la autorización falla
+        console.warn('⚠️  Could not authorize TokenExchange automatically:', authErr.message);
+        console.warn('   Token was created, but you will need to authorize the Exchange manually');
+        // Don't fail token creation if authorization fails
       }
 
-      // 4) También autorizar PredictionMarket para que se puedan usar tokens en apuestas
-      console.log('🔐 Autorizando PredictionMarket como minter...');
+      // 4) Also authorize PredictionMarket so tokens can be used in bets
+      console.log('🔐 Authorizing PredictionMarket as minter...');
       try {
         const tokenContract = await creatorTokenService.getContractWithSigner(result.tokenAddress);
         const authTx = await tokenContract.setAuthorizedMinter(CONTRACT_ADDRESSES.PredictionMarket, true);
         await authTx.wait();
-        console.log('✅ PredictionMarket autorizado como minter');
+        console.log('✅ PredictionMarket authorized as minter');
       } catch (authErr: any) {
-        console.warn('⚠️  No se pudo autorizar PredictionMarket automáticamente:', authErr.message);
-        // No fallar la creación del token si la autorización falla
+        console.warn('⚠️  Could not authorize PredictionMarket automatically:', authErr.message);
+        // Don't fail token creation if authorization fails
       }
       
-      // 5) Guardar token en la base de datos
+      // 5) Save token in database
       try {
-        console.log('💾 Guardando token en la base de datos...');
+        console.log('💾 Saving token in database...');
         const signer = await getSigner();
         const authToken = await generateAuthToken(address, signer);
         await apiService.registerToken({
@@ -171,17 +171,17 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
           coin_image_url: coinImageUrl,
           description: description.trim() || undefined,
         }, authToken);
-        console.log('✅ Token guardado en la base de datos');
+        console.log('✅ Token saved in database');
       } catch (dbError: any) {
-        console.error('⚠️  Error guardando token en la base de datos:', dbError);
-        console.warn('   El token fue creado en blockchain, pero no se pudo guardar en la BD');
-        // No fallar la creación del token si el guardado en BD falla
+        console.error('⚠️  Error saving token in database:', dbError);
+        console.warn('   Token was created on blockchain, but could not be saved in DB');
+        // Don't fail token creation if DB save fails
       }
       
       setSuccess(true);
       setCreatedTokenAddress(result.tokenAddress);
       
-      // Redirigir después de 3 segundos
+      // Redirect after 3 seconds
       setTimeout(() => {
         if (onCreated) {
           onCreated();
@@ -190,8 +190,8 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
         }
       }, 3000);
     } catch (err: any) {
-      console.error('Error creando token:', err);
-      setError(err.message || 'Error al crear el token');
+      console.error('Error creating token:', err);
+      setError(err.message || 'Error creating token');
     } finally {
       setIsCreating(false);
     }
@@ -202,13 +202,13 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
       <div className="p-6 max-w-4xl mx-auto">
         <div className="flex flex-col items-center justify-center py-20">
           <AlertCircle className="w-16 h-16 text-yellow-400 mb-4" />
-          <h2 className="text-2xl font-bold text-slate-100 mb-2">Wallet no conectada</h2>
-          <p className="text-slate-400 mb-6">Conecta tu wallet para crear tu token de creador</p>
+          <h2 className="text-2xl font-bold text-slate-100 mb-2">Wallet not connected</h2>
+          <p className="text-slate-400 mb-6">Connect your wallet to create your creator token</p>
           <button
             onClick={onBack}
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors"
           >
-            Volver
+            Back
           </button>
         </div>
       </div>
@@ -231,13 +231,13 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
       <div className="p-6 max-w-4xl mx-auto">
         <div className="flex flex-col items-center justify-center py-20">
           <Coins className="w-16 h-16 text-emerald-400 mb-4" />
-          <h2 className="text-2xl font-bold text-slate-100 mb-2">Ya tienes un token de creador</h2>
-          <p className="text-slate-400 mb-6">Solo puedes tener un token de creador por wallet</p>
+          <h2 className="text-2xl font-bold text-slate-100 mb-2">You already have a creator token</h2>
+          <p className="text-slate-400 mb-6">You can only have one creator token per wallet</p>
           <button
             onClick={onBack}
             className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors"
           >
-            Volver
+            Back
           </button>
         </div>
       </div>
@@ -256,9 +256,9 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
           Volver
         </button>
         
-        <h1 className="text-3xl font-bold text-slate-100 mb-2">Crear Token de Creador</h1>
+        <h1 className="text-3xl font-bold text-slate-100 mb-2">Create Creator Token</h1>
         <p className="text-slate-400">
-          Crea tu propio token para empezar a crear predicciones. Tus seguidores usarán este token para participar.
+          Create your own token to start creating predictions. Your followers will use this token to participate.
         </p>
       </div>
 
@@ -267,11 +267,11 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
         <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex items-center gap-3">
           <CheckCircle2 className="w-6 h-6 text-green-400 flex-shrink-0" />
           <div>
-            <p className="text-green-400 font-medium">¡Token creado exitosamente!</p>
+            <p className="text-green-400 font-medium">Token created successfully!</p>
             {createdTokenAddress && (
-              <p className="text-green-400/70 text-sm">Dirección: {createdTokenAddress}</p>
+              <p className="text-green-400/70 text-sm">Address: {createdTokenAddress}</p>
             )}
-            <p className="text-green-400/70 text-sm mt-1">Redirigiendo...</p>
+            <p className="text-green-400/70 text-sm mt-1">Redirecting...</p>
           </div>
         </div>
       )}
@@ -286,12 +286,12 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
 
       {/* Info Box */}
       <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
-        <h3 className="text-blue-400 font-medium mb-2">📌 Importante</h3>
+        <h3 className="text-blue-400 font-medium mb-2">📌 Important</h3>
         <ul className="text-blue-300/80 text-sm space-y-1">
-          <li>• Solo puedes crear un token de creador por wallet</li>
-          <li>• El nombre y símbolo no se pueden cambiar después</li>
-          <li>• El precio inicial puede actualizarse una vez al mes</li>
-          <li>• Los usuarios comprarán tus tokens para participar en tus predicciones</li>
+          <li>• You can only create one creator token per wallet</li>
+          <li>• Name and symbol cannot be changed afterwards</li>
+          <li>• Initial price can be updated once a month</li>
+          <li>• Users will buy your tokens to participate in your predictions</li>
         </ul>
       </div>
 
@@ -300,7 +300,7 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
         {/* Imagen de la Moneda */}
         <div>
           <label className="block text-slate-300 font-medium mb-2">
-            Imagen de la Moneda (opcional)
+            Coin Image (optional)
           </label>
           <div className="flex items-center gap-4">
             <Avatar className="w-20 h-20 border-2 border-slate-700">
@@ -318,7 +318,7 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
                 className="text-sm text-slate-300 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <p className="text-[11px] text-slate-500">
-                Recomendado: imagen cuadrada, máximo ~2MB. Se guardará en Supabase Storage.
+                Recommended: square image, max ~2MB. Will be saved to Supabase Storage.
               </p>
             </div>
           </div>
@@ -327,7 +327,7 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
         {/* Nombre del Token */}
         <div>
           <label className="block text-slate-300 font-medium mb-2">
-            Nombre del Token <span className="text-red-400">*</span>
+            Token Name <span className="text-red-400">*</span>
           </label>
           <input
             type="text"
@@ -344,7 +344,7 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
         {/* Símbolo */}
         <div>
           <label className="block text-slate-300 font-medium mb-2">
-            Símbolo <span className="text-red-400">*</span>
+            Symbol <span className="text-red-400">*</span>
           </label>
           <input
             type="text"
@@ -361,7 +361,7 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
         {/* Precio Inicial */}
         <div>
           <label className="block text-slate-300 font-medium mb-2">
-            Precio Inicial (ETH) <span className="text-red-400">*</span>
+            Initial Price (ETH) <span className="text-red-400">*</span>
           </label>
           <input
             type="number"
@@ -374,31 +374,31 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
             className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <p className="text-slate-500 text-xs mt-1">
-            Precio por token. Puedes actualizarlo una vez al mes después de crearlo.
+            Price per token. You can update it once a month after creation.
           </p>
         </div>
 
         {/* Descripción */}
         <div>
           <label className="block text-slate-300 font-medium mb-2">
-            Descripción (opcional)
+            Description (optional)
           </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Describe tu token de creador..."
+            placeholder="Describe your creator token..."
             maxLength={500}
             rows={3}
             disabled={isCreating}
             className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none resize-none disabled:opacity-50 disabled:cursor-not-allowed"
           />
-          <p className="text-slate-500 text-xs mt-1">{description.length}/500 caracteres</p>
+          <p className="text-slate-500 text-xs mt-1">{description.length}/500 characters</p>
         </div>
 
         {/* Preview */}
         {name && symbol && (
           <div className="pt-6 border-t border-slate-800">
-            <h3 className="text-slate-300 font-medium mb-3">Vista previa</h3>
+            <h3 className="text-slate-300 font-medium mb-3">Preview</h3>
             <div className="bg-slate-800/50 rounded-lg p-4 flex items-center gap-4">
               <Avatar className="w-16 h-16 border-2 border-slate-700">
                 <AvatarImage src={imagePreview || `https://api.dicebear.com/7.x/shapes/svg?seed=${symbol}`} />
@@ -409,7 +409,7 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
               <div className="flex-1">
                 <div className="text-slate-100 font-medium">{name}</div>
                 <div className="text-slate-400 text-sm">{symbol}</div>
-                <div className="text-emerald-400 text-sm">{initialPrice} ETH por token</div>
+                <div className="text-emerald-400 text-sm">{initialPrice} ETH per token</div>
                 {description && (
                   <div className="text-slate-500 text-xs mt-2 line-clamp-2">{description}</div>
                 )}
@@ -428,24 +428,24 @@ export function CreateTokenPage({ onBack, onCreated }: CreateTokenPageProps) {
             {isCreating ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                Creando Token...
+                Creating Token...
               </>
             ) : success ? (
               <>
                 <CheckCircle2 className="w-5 h-5" />
-                ¡Token Creado!
+                Token Created!
               </>
             ) : (
               <>
                 <Coins className="w-5 h-5" />
-                Crear Token
+                Create Token
               </>
             )}
           </button>
           
           {!success && (
             <p className="text-slate-500 text-xs text-center mt-3">
-              Se requerirá una transacción para crear el token
+              A transaction will be required to create the token
             </p>
           )}
         </div>

@@ -18,7 +18,7 @@ import { OnboardingPage } from './components/OnboardingPage';
 import React from 'react';
 
 export default function App() {
-  const [selectedCategory, setSelectedCategory] = useState('todos');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [currentPage, setCurrentPage] = useState<'home' | 'my-votes' | 'my-wallet' | 'my-subscriptions' | 'my-uvotes' | 'my-coin' | 'prediction-detail' | 'coin-detail' | 'creator-profile' | 'my-profile' | 'create-prediction' | 'create-token' | 'onboarding'>('home');
   const [previousPage, setPreviousPage] = useState<'home' | 'my-votes' | 'my-wallet' | 'my-subscriptions' | 'my-uvotes' | 'my-coin' | 'prediction-detail' | 'coin-detail' | 'creator-profile' | 'my-profile' | 'create-prediction' | 'create-token' | 'onboarding'>('home');
   const [selectedPredictionId, setSelectedPredictionId] = useState<string | null>(null);

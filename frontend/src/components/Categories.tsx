@@ -10,7 +10,7 @@ import {
 import React from 'react';
 
 const categories = [
-  { id: 'todos', label: 'Todos', emoji: '🌍' },
+  { id: 'all', label: 'All', emoji: '🌍' },
   { id: 'gaming', label: 'Gaming', emoji: '🎮' },
   { id: 'crypto', label: 'Crypto', emoji: '₿' },
   { id: 'sports', label: 'Sports', emoji: '⚽' },

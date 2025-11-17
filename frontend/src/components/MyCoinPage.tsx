@@ -33,12 +33,12 @@ export function MyCoinPage() {
     
     const priceNum = parseFloat(newPrice);
     if (isNaN(priceNum) || priceNum <= 0) {
-      setPriceChangeError('El precio debe ser mayor a 0');
+      setPriceChangeError('Price must be greater than 0');
       return;
     }
 
     if (priceNum === parseFloat(token.price)) {
-      setPriceChangeError('El nuevo precio debe ser diferente al actual');
+      setPriceChangeError('New price must be different from current price');
       return;
     }
 
@@ -46,19 +46,19 @@ export function MyCoinPage() {
       setIsUpdating(true);
       setPriceChangeError(null);
 
-      console.log('💰 Actualizando precio del token...');
+      console.log('💰 Updating token price...');
       console.log('   Token:', token.address);
-      console.log('   Precio actual:', token.price, 'DOT');
-      console.log('   Nuevo precio:', newPrice, 'DOT');
+      console.log('   Current price:', token.price, 'DOT');
+      console.log('   New price:', newPrice, 'DOT');
 
       const tokenContract = await creatorTokenService.getContractWithSigner(token.address);
       const priceInWei = ethers.parseEther(newPrice);
       
       const tx = await tokenContract.updatePrice(priceInWei);
-      console.log('   ✅ Transacción enviada, hash:', tx.hash);
-      console.log('   ⏳ Esperando confirmación...');
+      console.log('   ✅ Transaction sent, hash:', tx.hash);
+      console.log('   ⏳ Waiting for confirmation...');
       await tx.wait();
-      console.log('   ✅ Precio actualizado exitosamente');
+      console.log('   ✅ Price updated successfully');
 
       setUpdateSuccess(true);
       setNewPrice('');
@@ -69,14 +69,14 @@ export function MyCoinPage() {
         refetch();
       }, 2000);
     } catch (err: any) {
-      console.error('Error actualizando precio:', err);
-      setPriceChangeError(err.message || err.reason || 'Error al actualizar precio');
+      console.error('Error updating price:', err);
+      setPriceChangeError(err.message || err.reason || 'Error updating price');
     } finally {
       setIsUpdating(false);
     }
   };
 
-  // Cargar imagen de la moneda y perfil del creador desde Supabase
+  // Load coin image and creator profile from Supabase
   useEffect(() => {
     const loadTokenMetadata = async () => {
       if (!token?.address || !address) {
@@ -87,7 +87,7 @@ export function MyCoinPage() {
       try {
         setLoadingMetadata(true);
         
-        // Obtener imagen de la moneda desde Supabase
+        // Get coin image from Supabase
         const tokenData = await apiService.getToken(token.address);
         if (tokenData?.coin_image_url) {
           setCoinImageUrl(tokenData.coin_image_url);
@@ -95,7 +95,7 @@ export function MyCoinPage() {
           setCoinImageUrl(null);
         }
         
-        // Obtener perfil del creador
+        // Get creator profile
         const creatorData = await apiService.getUser(address);
         if (creatorData) {
           setCreatorProfile({
@@ -138,48 +138,48 @@ export function MyCoinPage() {
     checkAuthorizations();
   }, [token?.address]);
 
-  // Función para cargar ganancias del creador desde el contrato (memoizada)
+  // Function to load creator earnings from contract (memoized)
   const loadEarnings = useCallback(async () => {
     if (!address || !hasToken) {
-      console.log('⚠️ No se pueden cargar ganancias: address o hasToken faltantes', { address, hasToken });
+      console.log('⚠️ Cannot load earnings: missing address or hasToken', { address, hasToken });
       setEarnings('0');
       return;
     }
 
     try {
-      console.log('📊 Cargando ganancias del creador desde el contrato...', { address });
+      console.log('📊 Loading creator earnings from contract...', { address });
       setLoadingEarnings(true);
       
-      // Leer las ganancias acumuladas directamente del contrato TokenExchange
-      // El contrato ya tiene las ganancias sumadas en creatorEarnings[address]
+      // Read accumulated earnings directly from TokenExchange contract
+      // The contract already has earnings summed in creatorEarnings[address]
       const earningsEth = await tokenExchangeService.getCreatorEarnings(address);
 
-      console.log('💰 Ganancias obtenidas del contrato:', earningsEth, 'DOT');
+      console.log('💰 Earnings obtained from contract:', earningsEth, 'DOT');
       
-      // El contrato ya tiene las ganancias acumuladas, solo las leemos
+      // The contract already has accumulated earnings, we just read them
       setEarnings(earningsEth);
 
-      console.log('✅ Ganancias actualizadas en estado:', earningsEth, 'DOT');
+      console.log('✅ Earnings updated in state:', earningsEth, 'DOT');
     } catch (err) {
-      console.error('❌ Error cargando ganancias del creador:', err);
+      console.error('❌ Error loading creator earnings:', err);
       setEarnings('0');
     } finally {
       setLoadingEarnings(false);
     }
   }, [address, hasToken]);
 
-  // Cargar ganancias inicialmente cuando hay token y dirección
+  // Load initial earnings when there is token and address
   useEffect(() => {
     loadEarnings();
   }, [loadEarnings]);
 
-  // Escuchar cambios en el balance para actualizar ganancias automáticamente
+  // Listen for balance changes to automatically update earnings
   useEffect(() => {
     if (!address || !hasToken || !isConnected || !balance) {
       return;
     }
 
-    // Si es la primera vez que tenemos balance, guardarlo y cargar ganancias
+    // If it's the first time we have balance, save it and load earnings
     if (previousBalance === null) {
       console.log('🔄 Primera carga de balance:', balance, 'DOT');
       setPreviousBalance(balance);
@@ -187,24 +187,24 @@ export function MyCoinPage() {
       return;
     }
 
-    // Si el balance cambió, significa que recibimos ETH (posiblemente ganancias)
+    // If balance changed, it means we received ETH (possibly earnings)
     if (previousBalance !== balance) {
       const oldBalance = parseFloat(previousBalance);
       const newBalance = parseFloat(balance);
       const difference = newBalance - oldBalance;
 
-      console.log('💸 Balance cambió detectado!');
+      console.log('💸 Balance change detected!');
       console.log('   Balance anterior:', previousBalance, 'DOT');
       console.log('   Balance nuevo:', balance, 'DOT');
       console.log('   Diferencia:', difference > 0 ? `+${difference.toFixed(6)}` : difference.toFixed(6), 'DOT');
 
       if (difference > 0) {
-        console.log('✅ Balance aumentó - posiblemente recibiste ganancias del contrato');
-        console.log('🔄 Refrescando ganancias desde el contrato TokenExchange...');
-        console.log('   (Las ganancias ya están acumuladas en creatorEarnings[address])');
+        console.log('✅ Balance increased - possibly received earnings from contract');
+        console.log('🔄 Refreshing earnings from TokenExchange contract...');
+        console.log('   (Earnings are already accumulated in creatorEarnings[address])');
         
-        // Refrescar las ganancias desde el contrato
-        // IMPORTANTE: No sumamos aquí, el contrato ya tiene las ganancias acumuladas
+        // Refresh earnings from contract
+        // IMPORTANT: We don't sum here, the contract already has accumulated earnings
         loadEarnings();
       }
 
@@ -220,38 +220,38 @@ export function MyCoinPage() {
       setIsAuthorizing(true);
       setAuthorizeError(null);
       
-      console.log('🔐 Autorizando contratos...');
+      console.log('🔐 Authorizing contracts...');
       const tokenContract = await creatorTokenService.getContractWithSigner(token.address);
       
-      // Autorizar TokenExchange
+      // Authorize TokenExchange
       if (!isExchangeAuthorized) {
-        console.log('   Autorizando TokenExchange...');
+        console.log('   Authorizing TokenExchange...');
         const exchangeTx = await tokenContract.setAuthorizedMinter(CONTRACT_ADDRESSES.TokenExchange, true);
         await exchangeTx.wait();
-        console.log('   ✅ TokenExchange autorizado');
+        console.log('   ✅ TokenExchange authorized');
         setIsExchangeAuthorized(true);
       }
       
-      // Autorizar PredictionMarket
+      // Authorize PredictionMarket
       if (!isMarketAuthorized) {
-        console.log('   Autorizando PredictionMarket...');
+        console.log('   Authorizing PredictionMarket...');
         const marketTx = await tokenContract.setAuthorizedMinter(CONTRACT_ADDRESSES.PredictionMarket, true);
         await marketTx.wait();
-        console.log('   ✅ PredictionMarket autorizado');
+        console.log('   ✅ PredictionMarket authorized');
         setIsMarketAuthorized(true);
       }
       
-      console.log('✅ Todos los contratos autorizados');
+      console.log('✅ All contracts authorized');
     } catch (err: any) {
-      console.error('Error autorizando contratos:', err);
-      setAuthorizeError(err.message || err.reason || 'Error al autorizar contratos');
+      console.error('Error authorizing contracts:', err);
+      setAuthorizeError(err.message || err.reason || 'Error authorizing contracts');
     } finally {
       setIsAuthorizing(false);
     }
   };
 
   const formatTime = (seconds: number) => {
-    if (seconds <= 0) return 'Ahora';
+    if (seconds <= 0) return 'Now';
     
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
@@ -267,8 +267,8 @@ export function MyCoinPage() {
       <div className="p-6">
         <div className="flex flex-col items-center justify-center py-20">
           <Wallet className="w-16 h-16 text-slate-400 mb-4" />
-          <h2 className="text-2xl font-bold text-slate-100 mb-2">Wallet no conectada</h2>
-          <p className="text-slate-400">Conecta tu wallet para ver tu token de creador</p>
+          <h2 className="text-2xl font-bold text-slate-100 mb-2">Wallet not connected</h2>
+          <p className="text-slate-400">Connect your wallet to view your creator token</p>
         </div>
       </div>
     );
@@ -280,7 +280,7 @@ export function MyCoinPage() {
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mb-4" />
           <p className="text-slate-400">
-            {loading ? 'Cargando tu token desde blockchain...' : 'Cargando información del token...'}
+            {loading ? 'Loading your token from blockchain...' : 'Loading token information...'}
           </p>
         </div>
       </div>
@@ -304,16 +304,16 @@ export function MyCoinPage() {
       <div className="p-6">
         <div className="flex flex-col items-center justify-center py-20">
           <Coins className="w-16 h-16 text-slate-400 mb-4" />
-          <h2 className="text-2xl font-bold text-slate-100 mb-2">No tienes un token de creador</h2>
+          <h2 className="text-2xl font-bold text-slate-100 mb-2">You don't have a creator token</h2>
           <p className="text-slate-400 mb-6 text-center max-w-md">
-            Crea tu token de creador para empezar a crear predicciones y ganar comisiones
+            Create your creator token to start creating predictions and earning commissions
           </p>
           <button
-            onClick={() => {/* Navegar a crear token */}}
+            onClick={() => {/* Navigate to create token */}}
             className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
           >
             <Coins className="w-5 h-5" />
-            Crear Token de Creador
+            Create Creator Token
           </button>
         </div>
       </div>
@@ -326,15 +326,15 @@ export function MyCoinPage() {
     <div className="p-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-100 mb-2">Mi Token de Creador</h1>
-        <p className="text-slate-400">Gestiona y monitorea tu token</p>
+        <h1 className="text-3xl font-bold text-slate-100 mb-2">My Creator Token</h1>
+        <p className="text-slate-400">Manage and monitor your token</p>
       </div>
 
       {/* Success Message */}
       {updateSuccess && (
         <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-xl flex items-center gap-3">
           <TrendingUp className="w-6 h-6 text-green-400" />
-          <p className="text-green-400 font-medium">¡Precio actualizado exitosamente!</p>
+          <p className="text-green-400 font-medium">Price updated successfully!</p>
         </div>
       )}
 
@@ -369,16 +369,16 @@ export function MyCoinPage() {
           <div className="bg-slate-800/30 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="w-5 h-5 text-emerald-400" />
-              <span className="text-slate-500 text-sm">Precio Actual</span>
+              <span className="text-slate-500 text-sm">Current Price</span>
             </div>
             <p className="text-2xl font-bold text-emerald-400">{token.price} DOT</p>
-            <p className="text-slate-500 text-xs mt-1">por token</p>
+            <p className="text-slate-500 text-xs mt-1">per token</p>
           </div>
 
           <div className="bg-slate-800/30 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
               <Coins className="w-5 h-5 text-blue-400" />
-              <span className="text-slate-500 text-sm">Supply Total</span>
+              <span className="text-slate-500 text-sm">Total Supply</span>
             </div>
             <p className="text-2xl font-bold text-slate-100">
               {parseFloat(token.totalSupply).toLocaleString('es-ES', { maximumFractionDigits: 2 })}
@@ -389,13 +389,13 @@ export function MyCoinPage() {
           <div className="bg-slate-800/30 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
               <Calendar className="w-5 h-5 text-purple-400" />
-              <span className="text-slate-500 text-sm">Última Act. Precio</span>
+              <span className="text-slate-500 text-sm">Last Price Update</span>
             </div>
             <p className="text-slate-100 font-medium">
-              {new Date(token.lastPriceUpdate * 1000).toLocaleDateString('es-ES')}
+              {new Date(token.lastPriceUpdate * 1000).toLocaleDateString('en-US')}
             </p>
             <p className="text-slate-500 text-xs mt-1">
-              Intervalo: {priceUpdateIntervalDays} días
+              Interval: {priceUpdateIntervalDays} days
             </p>
           </div>
         </div>
@@ -407,9 +407,9 @@ export function MyCoinPage() {
           <div className="flex items-start gap-4 mb-4">
             <AlertCircle className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <h3 className="text-xl font-semibold text-yellow-400 mb-2">Autorización Requerida</h3>
+              <h3 className="text-xl font-semibold text-yellow-400 mb-2">Authorization Required</h3>
               <p className="text-yellow-300/80 text-sm mb-4">
-                Tu token necesita autorizar los contratos del sistema para que los usuarios puedan comprar tokens y apostar en tus predicciones.
+                Your token needs to authorize the system contracts so users can purchase tokens and bet on your predictions.
               </p>
               
               <div className="space-y-2 mb-4">
@@ -455,12 +455,12 @@ export function MyCoinPage() {
                 {isAuthorizing ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Autorizando...
+                    Authorizing...
                   </>
                 ) : (
                   <>
                     <Coins className="w-5 h-5" />
-                    Autorizar Contratos
+                    Authorize Contracts
                   </>
                 )}
               </button>
@@ -473,16 +473,16 @@ export function MyCoinPage() {
       <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6 mb-6">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h3 className="text-xl font-semibold text-slate-100 mb-2">Actualizar Precio</h3>
+            <h3 className="text-xl font-semibold text-slate-100 mb-2">Update Price</h3>
             <p className="text-slate-400 text-sm">
-              Puedes cambiar el precio de tu token cada {priceUpdateIntervalDays} días
+              You can change your token price every {priceUpdateIntervalDays} days
             </p>
           </div>
           
           {token.canUpdatePrice ? (
             <span className="px-3 py-1 rounded-lg text-sm bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center gap-1">
               <TrendingUp className="w-4 h-4" />
-              Disponible
+              Available
             </span>
           ) : (
             <span className="px-3 py-1 rounded-lg text-sm bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 flex items-center gap-1">
@@ -496,9 +496,9 @@ export function MyCoinPage() {
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-4 flex items-start gap-3">
             <Info className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
             <div className="text-slate-100 text-sm">
-              <p className="font-medium mb-1">Cambio de precio bloqueado</p>
+              <p className="font-medium mb-1">Price change locked</p>
               <p className="text-slate-100/90">
-                Podrás actualizar el precio en {formatTime(token.timeUntilPriceUpdate)}
+                You can update the price in {formatTime(token.timeUntilPriceUpdate)}
               </p>
             </div>
           </div>
@@ -513,7 +513,7 @@ export function MyCoinPage() {
         {isChangingPrice ? (
           <div className="space-y-4">
             <div>
-              <label className="block text-slate-300 text-sm mb-2">Nuevo Precio (DOT)</label>
+              <label className="block text-slate-300 text-sm mb-2">New Price (DOT)</label>
               <input
                 type="number"
                 value={newPrice}
@@ -524,7 +524,7 @@ export function MyCoinPage() {
                 disabled={!token.canUpdatePrice}
                 className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
               />
-              <p className="text-slate-500 text-xs mt-1">Precio actual: {token.price} DOT</p>
+              <p className="text-slate-500 text-xs mt-1">Current price: {token.price} DOT</p>
             </div>
             
             <div className="flex justify-end gap-3">
@@ -536,7 +536,7 @@ export function MyCoinPage() {
                 }}
                 className="px-4 py-2 text-slate-400 hover:text-slate-200 transition-colors"
               >
-                Cancelar
+                Cancel
               </button>
               <button
                 onClick={handleUpdatePrice}
@@ -546,12 +546,12 @@ export function MyCoinPage() {
                 {isUpdating ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Actualizando...
+                    Updating...
                   </>
                 ) : (
                   <>
                     <DollarSign className="w-4 h-4" />
-                    Confirmar Cambio
+                    Confirm Change
                   </>
                 )}
               </button>
@@ -564,81 +564,81 @@ export function MyCoinPage() {
             className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
           >
             <DollarSign className="w-5 h-5" />
-            {token.canUpdatePrice ? 'Cambiar Precio' : `Disponible en ${formatTime(token.timeUntilPriceUpdate)}`}
+            {token.canUpdatePrice ? 'Change Price' : `Available in ${formatTime(token.timeUntilPriceUpdate)}`}
           </button>
         )}
       </div>
 
       {/* Token Info */}
       <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6 mb-6">
-        <h3 className="text-xl font-semibold text-slate-100 mb-4">Información del Token</h3>
+        <h3 className="text-xl font-semibold text-slate-100 mb-4">Token Information</h3>
         
         <div className="space-y-4">
           <div className="flex justify-between items-center py-3 border-b border-slate-800">
-            <span className="text-slate-400">Nombre</span>
+            <span className="text-slate-400">Name</span>
             <span className="text-slate-100 font-medium">{token.name}</span>
           </div>
           
           <div className="flex justify-between items-center py-3 border-b border-slate-800">
-            <span className="text-slate-400">Símbolo</span>
+            <span className="text-slate-400">Symbol</span>
             <span className="text-slate-100 font-medium">{token.symbol}</span>
           </div>
           
           <div className="flex justify-between items-center py-3 border-b border-slate-800">
-            <span className="text-slate-400">Dirección del Contrato</span>
+            <span className="text-slate-400">Contract Address</span>
             <span className="text-slate-100 font-mono text-sm">
               {token.address.slice(0, 10)}...{token.address.slice(-8)}
             </span>
           </div>
           
           <div className="flex justify-between items-center py-3 border-b border-slate-800">
-            <span className="text-slate-400">Precio Actual</span>
+            <span className="text-slate-400">Current Price</span>
             <span className="text-emerald-400 font-bold">{token.price} DOT</span>
           </div>
           
           <div className="flex justify-between items-center py-3 border-b border-slate-800">
-            <span className="text-slate-400">Supply Total</span>
+            <span className="text-slate-400">Total Supply</span>
             <span className="text-slate-100 font-medium">
-              {parseFloat(token.totalSupply).toLocaleString('es-ES', { maximumFractionDigits: 2 })} {token.symbol}
+              {parseFloat(token.totalSupply).toLocaleString('en-US', { maximumFractionDigits: 2 })} {token.symbol}
             </span>
           </div>
           
           <div className="flex justify-between items-center py-3 border-b border-slate-800">
-            <span className="text-slate-400">Última Actualización de Precio</span>
+            <span className="text-slate-400">Last Price Update</span>
             <span className="text-slate-100">
-              {new Date(token.lastPriceUpdate * 1000).toLocaleDateString('es-ES')}
+              {new Date(token.lastPriceUpdate * 1000).toLocaleDateString('en-US')}
             </span>
           </div>
           
           <div className="flex justify-between items-center py-3">
-            <span className="text-slate-400">Intervalo de Actualización</span>
-            <span className="text-slate-100">{priceUpdateIntervalDays} días</span>
+            <span className="text-slate-400">Update Interval</span>
+            <span className="text-slate-100">{priceUpdateIntervalDays} days</span>
           </div>
         </div>
       </div>
 
-      {/* Ganancias del Creador */}
+      {/* Creator Earnings */}
       <div className="bg-gradient-to-br from-emerald-500/10 via-blue-500/10 to-purple-500/10 border border-emerald-500/20 rounded-xl p-6 mb-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
             <TrendingUp className="w-6 h-6 text-emerald-400" />
           </div>
           <div>
-            <h3 className="text-xl font-semibold text-slate-100">Ganancias del Creador</h3>
-            <p className="text-slate-400 text-sm">Total acumulado de ventas de tokens</p>
+            <h3 className="text-xl font-semibold text-slate-100">Creator Earnings</h3>
+            <p className="text-slate-400 text-sm">Total accumulated from token sales</p>
           </div>
         </div>
 
         {loadingEarnings ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="w-6 h-6 text-emerald-400 animate-spin" />
-            <span className="ml-3 text-slate-400">Cargando ganancias...</span>
+            <span className="ml-3 text-slate-400">Loading earnings...</span>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="bg-slate-900/30 border border-slate-800/50 rounded-lg p-6">
               <div className="flex items-baseline gap-3 mb-2">
-                <span className="text-slate-400 text-sm">Ganancias Totales</span>
+                <span className="text-slate-400 text-sm">Total Earnings</span>
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-4xl font-bold text-emerald-400">
@@ -647,7 +647,7 @@ export function MyCoinPage() {
                 <span className="text-xl text-slate-300">DOT</span>
               </div>
               <p className="text-slate-500 text-xs mt-2">
-                Estas son las ganancias acumuladas cuando los usuarios compran tus tokens
+                These are the accumulated earnings when users purchase your tokens
               </p>
             </div>
 
@@ -655,7 +655,7 @@ export function MyCoinPage() {
               <div className="bg-slate-900/30 border border-slate-800/50 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <DollarSign className="w-4 h-4 text-emerald-400" />
-                  <span className="text-slate-400 text-sm">Total Pagado</span>
+                  <span className="text-slate-400 text-sm">Total Paid</span>
                 </div>
                 <p className="text-slate-100 text-lg font-medium">
                   {parseFloat(earnings) > 0 
@@ -664,22 +664,22 @@ export function MyCoinPage() {
                   }
                 </p>
                 <p className="text-slate-500 text-xs mt-1">
-                  Total que los usuarios han pagado (incluye 5% fee)
+                  Total paid by users (includes 5% fee)
                 </p>
               </div>
 
               <div className="bg-slate-900/30 border border-slate-800/50 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Info className="w-4 h-4 text-blue-400" />
-                  <span className="text-slate-400 text-sm">Estado</span>
+                  <span className="text-slate-400 text-sm">Status</span>
                 </div>
                 <p className="text-slate-100 text-lg font-medium">
-                  {parseFloat(earnings) > 0 ? 'Activo' : 'Sin ventas aún'}
+                  {parseFloat(earnings) > 0 ? 'Active' : 'No sales yet'}
                 </p>
                 <p className="text-slate-500 text-xs mt-1">
                   {parseFloat(earnings) > 0 
-                    ? 'Has recibido pagos por tus tokens'
-                    : 'Las ganancias aparecerán cuando alguien compre tus tokens'
+                    ? 'You have received payments for your tokens'
+                    : 'Earnings will appear when someone purchases your tokens'
                   }
                 </p>
               </div>
@@ -692,13 +692,13 @@ export function MyCoinPage() {
       <div className="mt-6 bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
         <h4 className="text-blue-400 font-medium mb-2 flex items-center gap-2">
           <Info className="w-5 h-5" />
-          Información Importante
+          Important Information
         </h4>
         <ul className="text-slate-100 text-sm space-y-1">
-          <li>• Los usuarios compran tus tokens para participar en tus predicciones</li>
-          <li>• Ganas una comisión (fee) de cada predicción que creas</li>
-          <li>• El precio solo puede cambiarse cada {priceUpdateIntervalDays} días</li>
-          <li>• Los usuarios pueden canjear tokens por DOT usando el exchange</li>
+          <li>• Users purchase your tokens to participate in your predictions</li>
+          <li>• You earn a commission (fee) from each prediction you create</li>
+          <li>• Price can only be changed every {priceUpdateIntervalDays} days</li>
+          <li>• Users can redeem tokens for DOT using the exchange</li>
         </ul>
       </div>
     </div>

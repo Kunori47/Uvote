@@ -25,7 +25,7 @@ interface Prediction {
   options: PredictionOption[];
   endDate: string;
   thumbnail: string;
-  creatorTokenSymbol?: string; // Símbolo del token del creador
+  creatorTokenSymbol?: string; // Creator's token symbol
 }
 
 interface PredictionCardProps {
@@ -45,20 +45,20 @@ const optionColors = [
 // Helper to get color for specific option label
 const getColorForOption = (label: string, index: number) => {
   const normalizedLabel = label.toLowerCase();
-  if (normalizedLabel === 'sí' || normalizedLabel === 'si') {
-    return optionColors[0]; // Verde para Sí
+  if (normalizedLabel === 'yes' || normalizedLabel === 'si') {
+    return optionColors[0]; // Green for Yes
   }
   if (normalizedLabel === 'no') {
-    return optionColors[1]; // Rojo para No
+    return optionColors[1]; // Red for No
   }
   return optionColors[index % optionColors.length];
 };
 
 export function PredictionCard({ prediction, onClick }: PredictionCardProps) {
-  // Detectar si la predicción no tiene tiempo límite
-  const hasNoTimeLimit = prediction.endDate === 'Indefinida' || isNaN(new Date(prediction.endDate).getTime());
+  // Detect if the prediction has no time limit
+  const hasNoTimeLimit = prediction.endDate === 'Indefinite' || isNaN(new Date(prediction.endDate).getTime());
   
-  // Calcular días restantes solo si tiene tiempo límite válido
+  // Calculate remaining days only if it has a valid time limit
   const daysLeft = hasNoTimeLimit 
     ? null 
     : Math.ceil(
