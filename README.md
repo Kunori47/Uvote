@@ -74,7 +74,7 @@ In a new terminal window (while the local node is running):
 # Deploy contracts to local network
 npx hardhat ignition deploy ignition/modules/UvoteSystem.ts --network localhost && npm run sync:addresses
 # or
-npm run deploy:ignitionhttp://localhost:3000/
+npm run deploy:ignition
 ```
 
 ### 6. Fill Your Wallet with Test ETH

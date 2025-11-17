@@ -363,7 +363,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
       {/* Buy/Sell Section */}
       {isConnected ? (
         <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
-          <h2 className="text-xl font-bold text-slate-100 mb-4">Comprar / Vender</h2>
+          <h2 className="text-xl font-bold text-slate-100 mb-4">Buy / Sell</h2>
 
           {/* Action Tabs */}
           <div className="flex gap-2 mb-6">
@@ -379,7 +379,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
                   : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800'
               }`}
             >
-              Comprar
+              Buy
             </button>
             <button
               onClick={() => {
@@ -393,7 +393,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
                   : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800'
               }`}
             >
-              Vender
+              Sell
             </button>
           </div>
 
@@ -467,19 +467,19 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
             {isProcessing ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                Procesando...
+                Processing...
               </>
             ) : (
               <>
                 {action === 'buy' ? (
                   <>
                     <TrendingUp className="w-5 h-5" />
-                    Comprar {tokenInfo.symbol}
+                    Buy {tokenInfo.symbol}
                   </>
                 ) : (
                   <>
                     <DollarSign className="w-5 h-5" />
-                    Vender {tokenInfo.symbol}
+                    Sell {tokenInfo.symbol}
                   </>
                 )}
               </>
@@ -494,7 +494,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
                 <span className="text-slate-100">{tokenInfo.price} DOT</span>
               </div>
               <div className="flex justify-between">
-                <span>Fee de plataforma:</span>
+                <span>Platform fee:</span>
                 <span className="text-slate-100">1%</span>
               </div>
               {action === 'buy' && (
@@ -512,7 +512,7 @@ export function CoinDetailPage({ coinId, onBack }: CoinDetailPageProps) {
         <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
           <div className="text-center py-6">
             <Wallet className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-            <p className="text-slate-400">Conecta tu wallet para comprar o vender tokens</p>
+            <p className="text-slate-400">Connect your wallet to buy or sell tokens</p>
           </div>
         </div>
       )}
