@@ -4,7 +4,9 @@ A decentralized prediction market platform built on Ethereum where creators can 
 
 ## 📹 Demo Video
 
-[![Watch the demo](./video/タイトル未定.mp4)](./video/Desktop%202025.11.17%20-%2011.52.55.12.mp4)
+[![Watch the demo](https://img.youtube.com/vi/Y6FiLRq_kL0/0.jpg)](https://youtu.be/Y6FiLRq_kL0)
+
+[![Part 2](https://img.youtube.com/vi/7MTCnSUetiQ/0.jpg)](https://youtu.be/7MTCnSUetiQ)
 
 *Click the image above to watch a complete demo of the platform*
 
