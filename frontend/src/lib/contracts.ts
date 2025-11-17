@@ -1,28 +1,84 @@
 import { ethers } from 'ethers';
 
-// Direcciones de los contratos desplegados en Hardhat local
-// IMPORTANTE: Estas direcciones se reinician cada vez que reinicias `npx hardhat node`
-// Último deployment local (via Ignition UvoteSystem):
-//   CreatorTokenFactory - 0x5FbDB2315678afecb367f032d93F642f64180aa3
-//   PredictionMarket    - 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
-//   TokenExchange       - 0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
-export const CONTRACT_ADDRESSES = {
-  CreatorTokenFactory: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
-  PredictionMarket: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-  TokenExchange: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+// Tipo de red disponible
+type NetworkType = 'local' | 'moonbase' | 'moonbeam';
+
+// Obtener el tipo de red desde variables de entorno (default: local)
+const getNetworkType = (): NetworkType => {
+  const network = import.meta.env.VITE_NETWORK;
+  if (network === 'moonbase' || network === 'moonbeam') {
+    return network;
+  }
+  return 'local';
+};
+
+const networkType = getNetworkType();
+
+// Configuraciones de red
+const NETWORK_CONFIGS = {
+  local: {
+    chainId: Number(import.meta.env.VITE_LOCAL_CHAIN_ID || '31337'),
+    chainName: 'Hardhat Local',
+    rpcUrl: import.meta.env.VITE_LOCAL_RPC_URL || 'http://127.0.0.1:8545',
+    nativeCurrency: {
+      name: 'Ether',
+      symbol: 'ETH',
+      decimals: 18,
+    },
+    contractAddresses: {
+      CreatorTokenFactory: import.meta.env.VITE_LOCAL_FACTORY_ADDRESS || '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+      PredictionMarket: import.meta.env.VITE_LOCAL_PREDICTION_MARKET_ADDRESS || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+      TokenExchange: import.meta.env.VITE_LOCAL_TOKEN_EXCHANGE_ADDRESS || '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+    },
+  },
+  moonbase: {
+    chainId: Number(import.meta.env.VITE_MOONBASE_CHAIN_ID || '1287'),
+    chainName: 'Moonbase Alpha',
+    rpcUrl: import.meta.env.VITE_MOONBASE_RPC_URL || 'https://rpc.api.moonbase.moonbeam.network',
+    nativeCurrency: {
+      name: 'Moonbase',
+      symbol: 'DEV',
+      decimals: 18,
+    },
+    contractAddresses: {
+      CreatorTokenFactory: import.meta.env.VITE_MOONBASE_FACTORY_ADDRESS || '',
+      PredictionMarket: import.meta.env.VITE_MOONBASE_PREDICTION_MARKET_ADDRESS || '',
+      TokenExchange: import.meta.env.VITE_MOONBASE_TOKEN_EXCHANGE_ADDRESS || '',
+    },
+  },
+  moonbeam: {
+    chainId: Number(import.meta.env.VITE_MOONBEAM_CHAIN_ID || '1284'),
+    chainName: 'Moonbeam',
+    rpcUrl: import.meta.env.VITE_MOONBEAM_RPC_URL || 'https://rpc.api.moonbeam.network',
+    nativeCurrency: {
+      name: 'Moonbeam',
+      symbol: 'GLMR',
+      decimals: 18,
+    },
+    contractAddresses: {
+      CreatorTokenFactory: import.meta.env.VITE_MOONBEAM_FACTORY_ADDRESS || '',
+      PredictionMarket: import.meta.env.VITE_MOONBEAM_PREDICTION_MARKET_ADDRESS || '',
+      TokenExchange: import.meta.env.VITE_MOONBEAM_TOKEN_EXCHANGE_ADDRESS || '',
+    },
+  },
 } as const;
 
-// Configuración de la red local de Hardhat
-export const NETWORK_CONFIG = {
-  chainId: 31337,
-  chainName: 'Hardhat Local',
-  rpcUrl: 'http://127.0.0.1:8545',
-  nativeCurrency: {
-    name: 'Ether',
-    symbol: 'ETH',
-    decimals: 18,
-  },
+// Configuración actual basada en el tipo de red
+export const NETWORK_CONFIG = NETWORK_CONFIGS[networkType];
+
+// Direcciones de contratos para la red actual
+export const CONTRACT_ADDRESSES = NETWORK_CONFIGS[networkType].contractAddresses as {
+  CreatorTokenFactory: string;
+  PredictionMarket: string;
+  TokenExchange: string;
 };
+
+// Símbolo de moneda nativa para mostrar en la UI
+// En Moonbeam/Moonbase mostramos DOT, en local ETH
+export const NATIVE_CURRENCY_SYMBOL = 
+  networkType === 'moonbase' || networkType === 'moonbeam' 
+    ? 'DOT' 
+    : 'ETH';
 
 // Provider para leer datos (sin necesidad de wallet)
 export const getProvider = () => {
