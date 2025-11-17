@@ -16,6 +16,7 @@ A decentralized prediction market platform built on Polkadot where creators can 
 - npm or yarn
 - Git
 
+## For Moonbase Alpha (Testnet) or Moonbeam (Mainnet) please see DEPLOY_MOONBEAM.md
 ## Local Development Setup
 
 ### 1. Clone the Repository
