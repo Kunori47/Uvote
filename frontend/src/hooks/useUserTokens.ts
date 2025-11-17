@@ -56,13 +56,20 @@ export const useUserTokens = (userAddress: string | null) => {
             });
           }
         } catch (err) {
+          // Ignorar errores de tokens individuales (ej: missing revert data)
+          // Esto puede pasar cuando un token no está inicializado correctamente
           console.error(`Error loading token ${tokenAddress}:`, err);
         }
       }
 
       setTokens(userTokensData);
     } catch (err: any) {
-      setError(err.message || 'Error al cargar tokens');
+      // Manejar específicamente el error de "missing revert data" cuando no hay tokens
+      if (err.message && err.message.includes('missing revert data')) {
+        setError(null); // No mostrar error cuando simplemente no hay tokens
+      } else {
+        setError(err.message || 'Error al cargar tokens');
+      }
       console.error('Error loading user tokens:', err);
     } finally {
       setLoading(false);

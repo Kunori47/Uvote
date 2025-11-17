@@ -495,8 +495,11 @@ export function MyWalletPage({ onViewCoin }: MyWalletPageProps) {
           </div>
         ) : filteredAndSortedTokens.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-slate-400 mb-2">No tienes tokens de creadores aún</p>
-            <p className="text-slate-500 text-sm">Compra tokens en el Exchange para empezar</p>
+            <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Coins className="w-8 h-8 text-slate-400" />
+            </div>
+            <p className="text-slate-400 mb-2 text-lg">No tienes tokens de creadores aún</p>
+            <p className="text-slate-500 text-sm mb-4">Explora creadores y compra sus tokens para empezar</p>
           </div>
         ) : (
           filteredAndSortedTokens.map((token) => {
