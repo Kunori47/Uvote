@@ -8,6 +8,11 @@ A decentralized prediction market platform built on Polkadot where creators can 
 
 *Click the image above to watch a complete demo of the platform*
 
+[![Watch the Explanation](https://img.youtube.com/vi/AsddPTiSkYg/0.jpg)](https://youtu.be/AsddPTiSkYg)
+
+*Click the image above to watch a complete explanation of the platform*
+
+
 ## Prerequisites
 
 - Node.js (v18 or higher)
