@@ -33,33 +33,33 @@ app.use(cors({
       process.env.CORS_ORIGIN,
       'http://localhost:5173',
       'http://localhost:3000',
-      'https://uvote-one.vercel.app',
-      'https://uvote-one.vercel.app/',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:3000',
     ].filter(Boolean); // Remover valores undefined/null
 
-    // Permitir cualquier origen de Vercel (desarrollo y producción)
+    // Permitir CUALQUIER origen de Vercel (producción, preview, branch deployments)
     const isVercelOrigin = 
       origin.includes('.vercel.app') || 
       origin.includes('vercel.app') ||
-      origin.startsWith('https://uvote-one');
+      origin.includes('vercel-dns.com') ||
+      origin.startsWith('https://uvote');
 
-    if (allowedOrigins.includes(origin) || isVercelOrigin) {
+    // Permitir localhost en desarrollo
+    const isLocalhost = origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1');
+
+    if (allowedOrigins.includes(origin) || isVercelOrigin || isLocalhost) {
       callback(null, true);
     } else {
-      // En desarrollo, permitir todos los orígenes
-      if (process.env.NODE_ENV !== 'production') {
-        callback(null, true);
-      } else {
-        // En producción, ser más permisivo con Vercel pero loguear
-        console.log(`CORS check - Origin: ${origin}, Allowed: ${allowedOrigins.join(', ')}, IsVercel: ${isVercelOrigin}`);
-        callback(null, true); // Permitir temporalmente para debug
-      }
+      // En producción, permitir todos los orígenes de Vercel
+      // Log para debugging
+      console.log(`[CORS] Origin: ${origin}, Allowed: true (Vercel/development)`);
+      callback(null, true);
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
   preflightContinue: false,
   optionsSuccessStatus: 204,
 }));
