@@ -232,23 +232,25 @@ const sortOptions = [
 interface CreatorProfilePageProps {
   creatorId: string;
   onBack: () => void;
+  onViewPrediction?: (id: string) => void;
 }
 
 export function CreatorProfilePage({
   creatorId,
   onBack,
+  onViewPrediction,
 }: CreatorProfilePageProps) {
   const { address: currentUserAddress, isConnected } = useWallet();
   const { predictions: allPredictions } = usePredictions();
   const { token: creatorToken, hasToken: hasCreatorToken } = useMyCreatorToken(creatorId);
   const { isSubscribed: isUserSubscribed, subscribe, unsubscribe, loading: subscriptionLoading } = useSubscriptions(currentUserAddress);
-  
+
   const [activeTab, setActiveTab] = useState<TabType>("predictions");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [sortBy, setSortBy] = useState<SortOption>("recent");
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
-  
+
   // States for real data
   const [creator, setCreator] = useState<Creator | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -274,7 +276,7 @@ export function CreatorProfilePage({
   };
 
   // ============ LOAD BACKEND DATA ============
-  
+
   // Load creator profile from Supabase
   useEffect(() => {
     const loadCreatorProfile = async () => {
@@ -335,24 +337,39 @@ export function CreatorProfilePage({
 
   // Load creator token information
   useEffect(() => {
-    if (!creatorId || !hasCreatorToken || !creatorToken || !creator) {
-      if (creator) {
-        setCreator((prev) => ({
-          ...prev!,
+    if (!creatorId) return;
+
+    if (!hasCreatorToken || !creatorToken) {
+      setCreator((prev) => {
+        if (!prev) return null;
+        if (!prev.hasCreatorCoin) return prev;
+        return {
+          ...prev,
           hasCreatorCoin: false,
           coinSymbol: undefined,
           coinValue: undefined,
-        }));
-      }
+        };
+      });
       return;
     }
 
-    setCreator((prev) => ({
-      ...prev!,
-      hasCreatorCoin: true,
-      coinSymbol: creatorToken.symbol,
-      coinValue: parseFloat(creatorToken.price),
-    }));
+    setCreator((prev) => {
+      if (!prev) return null;
+
+      // Check if values changed
+      if (prev.hasCreatorCoin === true &&
+        prev.coinSymbol === creatorToken.symbol &&
+        prev.coinValue === parseFloat(creatorToken.price)) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        hasCreatorCoin: true,
+        coinSymbol: creatorToken.symbol,
+        coinValue: parseFloat(creatorToken.price),
+      };
+    });
   }, [creatorId, hasCreatorToken, creatorToken]);
 
   // Load creator earnings
@@ -437,39 +454,32 @@ export function CreatorProfilePage({
 
   // Update prediction statistics
   useEffect(() => {
-    if (!creator) return;
-    
+    // Calculate stats based on creatorPredictions only
     const totalPredictions = creatorPredictions.length;
     const activePredictions = creatorPredictions.filter(
       (p) => p.status === 0 || p.status === 1 || p.status === 2 || p.status === 3
     ).length;
-    
+
     // Calculate success percentage based on confirmed predictions
-    // Only count predictions that are confirmed (status === 4) and have a valid winningOption
     const confirmedPredictions = creatorPredictions.filter(
       (p) => p.status === 4 && p.winningOption >= 0 && p.winningOption < p.options.length
     );
-    
-    // Only count predictions that have been resolved (status >= 2) to calculate the percentage
-    // Exclude active, cancelled, and disputed predictions from the calculation
+
     const resolvedPredictions = creatorPredictions.filter(
       (p) => p.status === 2 || p.status === 3 || p.status === 4 || p.status === 5
     );
-    
-    // Calculate win rate: percentage of confirmed predictions over resolved predictions
+
     let winRate = 0;
     if (resolvedPredictions.length > 0) {
       winRate = (confirmedPredictions.length / resolvedPredictions.length) * 100;
-      // Round to 1 decimal
       winRate = Math.round(winRate * 10) / 10;
     }
 
-    // Calculate average participants of all creator predictions
+    // Calculate average participants
     let totalParticipants = 0;
     let predictionsWithParticipants = 0;
 
     creatorPredictions.forEach((pred) => {
-      // For each prediction, sum totalBettors from all options
       const participantsInPrediction = pred.options.reduce((sum, opt) => sum + opt.totalBettors, 0);
       if (participantsInPrediction > 0) {
         totalParticipants += participantsInPrediction;
@@ -477,13 +487,21 @@ export function CreatorProfilePage({
       }
     });
 
-    // Calculate the average
-    const averageParticipants = predictionsWithParticipants > 0 
+    const averageParticipants = predictionsWithParticipants > 0
       ? Math.round(totalParticipants / predictionsWithParticipants)
       : 0;
 
     setCreator((prev) => {
-      if (!prev) return prev;
+      if (!prev) return null;
+
+      // Check if values changed to avoid re-renders
+      if (prev.totalPredictions === totalPredictions &&
+        prev.activePredictions === activePredictions &&
+        prev.winRate === winRate &&
+        prev.averageParticipants === averageParticipants) {
+        return prev;
+      }
+
       return {
         ...prev,
         totalPredictions,
@@ -492,7 +510,7 @@ export function CreatorProfilePage({
         averageParticipants,
       };
     });
-  }, [creatorPredictions, creator]);
+  }, [creatorPredictions]);
 
   // ============ SUBSCRIPTION MANAGEMENT ============
 
@@ -508,7 +526,7 @@ export function CreatorProfilePage({
     try {
       setIsTogglingSubscription(true);
       setSubscriptionError(null);
-      
+
       if (isUserSubscribed(creatorId)) {
         await unsubscribe(creatorId);
       } else {
@@ -529,7 +547,7 @@ export function CreatorProfilePage({
   // Convert blockchain predictions to PredictionCard format
   const predictionsForCards = useMemo(() => {
     if (!creator) return [];
-    
+
     return creatorPredictions.map((pred) => {
       const MAX_SAFE_TIMESTAMP = 10 ** 15;
       let endDate: string;
@@ -703,11 +721,10 @@ export function CreatorProfilePage({
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setNotificationsEnabled(!notificationsEnabled)}
-                  className={`p-3 rounded-xl transition-all ${
-                    notificationsEnabled
-                      ? "bg-slate-800/50 text-slate-300 hover:bg-slate-800 border border-slate-700/50"
-                      : "bg-slate-900/50 text-slate-500 hover:bg-slate-800/50 border border-slate-800/50"
-                  }`}
+                  className={`p-3 rounded-xl transition-all ${notificationsEnabled
+                    ? "bg-slate-800/50 text-slate-300 hover:bg-slate-800 border border-slate-700/50"
+                    : "bg-slate-900/50 text-slate-500 hover:bg-slate-800/50 border border-slate-800/50"
+                    }`}
                 >
                   {notificationsEnabled ? (
                     <Bell className="w-5 h-5" />
@@ -718,11 +735,10 @@ export function CreatorProfilePage({
                 <button
                   onClick={handleToggleSubscription}
                   disabled={!isConnected || isTogglingSubscription || subscriptionLoading}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                    isSubscribed
-                      ? "bg-slate-800/50 text-slate-300 hover:bg-slate-800 border border-slate-700/50"
-                      : "bg-emerald-500 text-white hover:bg-emerald-600"
-                  }`}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isSubscribed
+                    ? "bg-slate-800/50 text-slate-300 hover:bg-slate-800 border border-slate-700/50"
+                    : "bg-emerald-500 text-white hover:bg-emerald-600"
+                    }`}
                 >
                   {isTogglingSubscription || subscriptionLoading ? (
                     <>
@@ -811,31 +827,28 @@ export function CreatorProfilePage({
           <div className="flex items-center gap-6">
             <button
               onClick={() => setActiveTab("predictions")}
-              className={`pb-3 px-1 border-b-2 transition-colors ${
-                activeTab === "predictions"
-                  ? "border-emerald-500 text-emerald-400"
-                  : "border-transparent text-slate-400 hover:text-slate-200"
-              }`}
+              className={`pb-3 px-1 border-b-2 transition-colors ${activeTab === "predictions"
+                ? "border-emerald-500 text-emerald-400"
+                : "border-transparent text-slate-400 hover:text-slate-200"
+                }`}
             >
               Predictions
             </button>
             <button
               onClick={() => setActiveTab("about")}
-              className={`pb-3 px-1 border-b-2 transition-colors ${
-                activeTab === "about"
-                  ? "border-emerald-500 text-emerald-400"
-                  : "border-transparent text-slate-400 hover:text-slate-200"
-              }`}
+              className={`pb-3 px-1 border-b-2 transition-colors ${activeTab === "about"
+                ? "border-emerald-500 text-emerald-400"
+                : "border-transparent text-slate-400 hover:text-slate-200"
+                }`}
             >
               Information
             </button>
             <button
               onClick={() => setActiveTab("stats")}
-              className={`pb-3 px-1 border-b-2 transition-colors ${
-                activeTab === "stats"
-                  ? "border-emerald-500 text-emerald-400"
-                  : "border-transparent text-slate-400 hover:text-slate-200"
-              }`}
+              className={`pb-3 px-1 border-b-2 transition-colors ${activeTab === "stats"
+                ? "border-emerald-500 text-emerald-400"
+                : "border-transparent text-slate-400 hover:text-slate-200"
+                }`}
             >
               Statistics
             </button>
@@ -851,31 +864,28 @@ export function CreatorProfilePage({
               <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto">
                 <button
                   onClick={() => setFilterStatus("all")}
-                  className={`px-4 py-2 rounded-xl whitespace-nowrap transition-all ${
-                    filterStatus === "all"
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                      : "bg-slate-900/50 text-slate-400 border border-slate-800/50 hover:bg-slate-800/50"
-                  }`}
+                  className={`px-4 py-2 rounded-xl whitespace-nowrap transition-all ${filterStatus === "all"
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                    : "bg-slate-900/50 text-slate-400 border border-slate-800/50 hover:bg-slate-800/50"
+                    }`}
                 >
                   All
                 </button>
                 <button
                   onClick={() => setFilterStatus("active")}
-                  className={`px-4 py-2 rounded-xl whitespace-nowrap transition-all ${
-                    filterStatus === "active"
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                      : "bg-slate-900/50 text-slate-400 border border-slate-800/50 hover:bg-slate-800/50"
-                  }`}
+                  className={`px-4 py-2 rounded-xl whitespace-nowrap transition-all ${filterStatus === "active"
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                    : "bg-slate-900/50 text-slate-400 border border-slate-800/50 hover:bg-slate-800/50"
+                    }`}
                 >
                   Active ({creator.activePredictions || 0})
                 </button>
                 <button
                   onClick={() => setFilterStatus("ended")}
-                  className={`px-4 py-2 rounded-xl whitespace-nowrap transition-all ${
-                    filterStatus === "ended"
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                      : "bg-slate-900/50 text-slate-400 border border-slate-800/50 hover:bg-slate-800/50"
-                  }`}
+                  className={`px-4 py-2 rounded-xl whitespace-nowrap transition-all ${filterStatus === "ended"
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                    : "bg-slate-900/50 text-slate-400 border border-slate-800/50 hover:bg-slate-800/50"
+                    }`}
                 >
                   Completed
                 </button>
@@ -900,11 +910,10 @@ export function CreatorProfilePage({
                           setSortBy(option.id);
                           setShowSortMenu(false);
                         }}
-                        className={`w-full text-left px-4 py-2.5 text-sm transition-all first:rounded-t-xl last:rounded-b-xl ${
-                          sortBy === option.id
-                            ? "bg-emerald-500/20 text-emerald-400"
-                            : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
-                        }`}
+                        className={`w-full text-left px-4 py-2.5 text-sm transition-all first:rounded-t-xl last:rounded-b-xl ${sortBy === option.id
+                          ? "bg-emerald-500/20 text-emerald-400"
+                          : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                          }`}
                       >
                         {option.label}
                       </button>
@@ -927,7 +936,11 @@ export function CreatorProfilePage({
                 </div>
               ) : (
                 filteredAndSortedPredictions.map((prediction) => (
-                  <PredictionCard key={prediction.id} prediction={prediction} />
+                  <PredictionCard
+                    key={prediction.id}
+                    prediction={prediction}
+                    onClick={() => onViewPrediction?.(prediction.id)}
+                  />
                 ))
               )}
             </div>
@@ -1061,7 +1074,7 @@ export function CreatorProfilePage({
                 </div>
               </div>
 
-              
+
 
               {/* Categories - Not implemented yet
               <div className="bg-slate-900/30 border border-slate-800/50 rounded-xl p-6">

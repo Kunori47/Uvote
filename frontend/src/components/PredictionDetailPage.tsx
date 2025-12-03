@@ -20,26 +20,26 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
   const { address, isConnected } = useWallet();
   const { prediction, loading, error, refetch } = usePredictionDetail(predictionId, address);
   const { subscribe, unsubscribe, isSubscribed } = useSubscriptions(address);
-  
+
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [betAmount, setBetAmount] = useState('');
   const [isPlacingBet, setIsPlacingBet] = useState(false);
   const [betError, setBetError] = useState<string | null>(null);
   const [betSuccess, setBetSuccess] = useState(false);
   const [userBalance, setUserBalance] = useState<string>('0');
-  
+
   // States for claiming winnings
   const [isClaiming, setIsClaiming] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
   const [claimSuccess, setClaimSuccess] = useState(false);
   const [claimableAmount, setClaimableAmount] = useState<string | null>(null);
   const [isCalculatingReward, setIsCalculatingReward] = useState(false);
-  
+
   // States for reporting fraud
   const [isReporting, setIsReporting] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
   const [reportSuccess, setReportSuccess] = useState(false);
-  
+
   // States for resolving prediction (creator)
   const [isResolving, setIsResolving] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<number | null>(null);
@@ -48,10 +48,10 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
   const [isClosing, setIsClosing] = useState(false);
   const [closeError, setCloseError] = useState<string | null>(null);
   const [closeSuccess, setCloseSuccess] = useState(false);
-  
+
   // Cooldown counter
   const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
-  
+
   // Subscription states
   const [isSubscribing, setIsSubscribing] = useState(false);
 
@@ -88,10 +88,10 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
   React.useEffect(() => {
     const autoConfirm = async () => {
       if (!prediction || prediction.status !== 2) return; // Only if in Cooldown
-      
+
       const now = Math.floor(Date.now() / 1000);
       const cooldownEnded = prediction.cooldownEndsAt > 0 && now >= prediction.cooldownEndsAt;
-      
+
       if (cooldownEnded) {
         console.log('⏰ Cooldown ended, confirming automatically...');
         try {
@@ -162,10 +162,10 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
 
   const formatCooldownTime = (seconds: number) => {
     if (seconds <= 0) return '0m 0s';
-    
+
     const minutes = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    
+
     return `${minutes}m ${secs}s`;
   };
 
@@ -173,20 +173,20 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
     // If closesAt is a very large value (type(uint256).max), it's an indefinite prediction
     const MAX_UINT256 = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
     const closesAtBigInt = BigInt(closesAt);
-    
+
     // If it's more than a year in the future (very unlikely), it's probably indefinite
     if (closesAtBigInt > BigInt(10) ** BigInt(15)) {
       return 'No time limit';
     }
-    
+
     const now = Date.now() / 1000;
     const remaining = closesAt - now;
-    
+
     if (remaining <= 0) return 'Closed';
-    
+
     const days = Math.floor(remaining / 86400);
     const hours = Math.floor((remaining % 86400) / 3600);
-    
+
     if (days > 0) return `${days}d ${hours}h`;
     if (hours > 0) return `${hours}h`;
     return `${Math.floor(remaining / 60)}min`;
@@ -225,24 +225,27 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
       setBetSuccess(false);
 
       // Check ETH balance (needed to pay for gas)
-      const provider = new ethers.BrowserProvider(window.ethereum!);
+      const walletProvider = getWalletProvider();
+      if (!walletProvider) throw new Error('No wallet provider found');
+
+      const provider = new ethers.BrowserProvider(walletProvider);
       const ethBalance = await provider.getBalance(address);
       const ethBalanceFormatted = parseFloat(ethers.formatEther(ethBalance));
-      
+
       console.log('💰 Balance ETH:', ethBalanceFormatted, 'ETH');
-      
+
       if (ethBalanceFormatted < 0.001) {
         throw new Error(`Insufficient ETH for gas. You have ${ethBalanceFormatted.toFixed(6)} ETH. You need at least 0.001 ETH. Verify that SubWallet is connected to the local network (ChainID: 31337) and you can see your ETH balance.`);
       }
 
       const marketAddress = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512';
-      
+
       // 1. Check if already has sufficient approval
       console.log('📝 Step 1: Verifying token approval...');
       console.log('   Token:', prediction.creatorToken);
       console.log('   Spender:', marketAddress);
       console.log('   Amount needed:', betAmount);
-      
+
       if (!address) {
         throw new Error('No wallet address connected');
       }
@@ -252,14 +255,14 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
         address,
         marketAddress
       );
-      
+
       console.log('   Current approval:', currentAllowance);
-      
+
       // Check if approval is unlimited or very large (MaxUint256 converts to a very large number)
       const allowanceNum = parseFloat(currentAllowance);
       const betAmountNum = parseFloat(betAmount);
       const isUnlimited = allowanceNum > 1e20; // MaxUint256 is ~1.15e77, but parseFloat can lose precision
-      
+
       if (isUnlimited) {
         console.log('   You already have unlimited approval (from when you bought the tokens)');
         console.log('   You dont need to pay gas for approval!');
@@ -269,7 +272,7 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
           // Approve a larger amount to avoid multiple approvals (e.g., 10x the amount)
           const approveAmount = (parseFloat(betAmount) * 10).toString();
           console.log('   Approving amount:', approveAmount, '(to avoid multiple approvals)');
-          
+
           const approveTx = await creatorTokenService.approve(
             prediction.creatorToken,
             marketAddress,
@@ -280,14 +283,14 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
           console.log('   ✅ Approval confirmed');
         } catch (approveErr: any) {
           console.error('   ❌ Error in approval:', approveErr);
-          
+
           // Check if it's an insufficient balance error
-          if (approveErr.message?.includes('Insufficient balance') || 
-              approveErr.message?.includes('insufficient funds') ||
-              approveErr.code === -32603) {
+          if (approveErr.message?.includes('Insufficient balance') ||
+            approveErr.message?.includes('insufficient funds') ||
+            approveErr.code === -32603) {
             throw new Error('Insufficient ETH for gas. You need ETH in your wallet to approve tokens. Verify that SubWallet is connected to the local network (ChainID: 31337).');
           }
-          
+
           throw new Error(`Error approving tokens: ${approveErr.message || approveErr.reason || 'Transaction rejected'}`);
         }
       } else {
@@ -299,7 +302,7 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
       console.log('   Prediction ID:', predictionId);
       console.log('   Option Index:', selectedOption);
       console.log('   Amount:', betAmount);
-      
+
       try {
         const betTx = await predictionMarketService.placeBet(predictionId, selectedOption, betAmount);
         console.log('   ✅ Bet sent, waiting for confirmation...');
@@ -313,7 +316,7 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
       setBetSuccess(true);
       setBetAmount('');
       setSelectedOption(null);
-      
+
       // Refrescar datos
       setTimeout(() => {
         refetch();
@@ -332,17 +335,17 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
   // Claim winnings
   const handleClaimWinnings = async () => {
     if (!prediction || !address) return;
-    
+
     try {
       setIsClaiming(true);
       setClaimError(null);
-      
+
       console.log('💰 Claiming winnings...');
       await predictionMarketService.claimWinnings(prediction.id);
-      
+
       setClaimSuccess(true);
       setClaimableAmount(null); // Clear claimable amount
-      
+
       // Refresh data after claiming
       setTimeout(() => {
         refetch();
@@ -359,18 +362,18 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
   // Report fraud
   const handleReportFraud = async () => {
     if (!prediction || !address) return;
-    
+
     if (!confirm('Are you sure you want to report this prediction as fraud? This action cannot be undone.')) {
       return;
     }
-    
+
     try {
       setIsReporting(true);
       setReportError(null);
-      
+
       console.log('🚨 Reporting fraud...');
       await predictionMarketService.reportFraud(prediction.id, 'Reported from UI');
-      
+
       setReportSuccess(true);
       setTimeout(() => {
         refetch();
@@ -387,18 +390,18 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
   // Close prediction manually (creator)
   const handleClose = async () => {
     if (!prediction || !address) return;
-    
+
     if (!confirm('Are you sure you want to close this prediction? Once closed, no more bets can be placed.')) {
       return;
     }
-    
+
     try {
       setIsClosing(true);
       setCloseError(null);
-      
+
       console.log('🔒 Closing prediction...');
       await predictionMarketService.closePrediction(prediction.id);
-      
+
       setCloseSuccess(true);
       setTimeout(() => {
         refetch();
@@ -414,10 +417,10 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
 
   const handleToggleSubscription = async () => {
     if (!prediction) return;
-    
+
     try {
       setIsSubscribing(true);
-      
+
       if (isSubscribed(prediction.creator)) {
         await unsubscribe(prediction.creator);
       } else {
@@ -434,18 +437,18 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
   // Resolve prediction (creator)
   const handleResolve = async () => {
     if (!prediction || !address || selectedWinner === null) return;
-    
+
     if (!confirm(`Confirm that the winning option is "${prediction.options[selectedWinner].description}"?`)) {
       return;
     }
-    
+
     try {
       setIsResolving(true);
       setResolveError(null);
-      
+
       console.log('🏁 Resolving prediction...');
       await predictionMarketService.resolvePrediction(prediction.id, selectedWinner);
-      
+
       setResolveSuccess(true);
       setSelectedWinner(null);
       setTimeout(() => {
@@ -511,17 +514,16 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
               <span className={`px-3 py-1 rounded-full text-sm bg-${statusColor}-500/10 border border-${statusColor}-500/30 text-${statusColor}-400`}>
                 {STATUS_NAMES[prediction.status]}
               </span>
-              
+
               {/* Follow/Unfollow Button */}
               {isConnected && address?.toLowerCase() !== prediction.creator.toLowerCase() && (
                 <button
                   onClick={handleToggleSubscription}
                   disabled={isSubscribing}
-                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                    isSubscribed(prediction.creator)
-                      ? 'bg-slate-800 border border-slate-700 text-slate-300 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400'
-                      : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${isSubscribed(prediction.creator)
+                    ? 'bg-slate-800 border border-slate-700 text-slate-300 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {isSubscribing ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -561,7 +563,7 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
                   </div>
                 </div>
               )}
-              
+
               {/* Cooldown Counter */}
               <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
                 <div className="flex items-center gap-3">
@@ -632,51 +634,50 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
           <div className="space-y-3">
             {prediction.options.map((option) => {
               // Determine if this option is the winner (when in cooldown or confirmed)
-              const isWinner = (prediction.status === 2 || prediction.status === 3 || prediction.status === 4) 
-                && prediction.winningOption >= 0 
+              const isWinner = (prediction.status === 2 || prediction.status === 3 || prediction.status === 4)
+                && prediction.winningOption >= 0
                 && option.index === prediction.winningOption;
-              
+
               return (
-              <div
-                key={option.index}
-                onClick={() => isActive && setSelectedOption(option.index)}
-                className={`bg-slate-900/50 border rounded-xl p-4 transition-all cursor-pointer ${
-                  isWinner
+                <div
+                  key={option.index}
+                  onClick={() => isActive && setSelectedOption(option.index)}
+                  className={`bg-slate-900/50 border rounded-xl p-4 transition-all cursor-pointer ${isWinner
                     ? 'border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/30'
                     : selectedOption === option.index
-                    ? 'border-emerald-500 bg-emerald-500/10'
-                    : 'border-slate-800/50 hover:border-slate-700'
-                } ${!isActive && 'opacity-50 cursor-not-allowed'}`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-white font-medium">{option.description}</h3>
-                    {isWinner && (
-                      <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/20 border border-emerald-500/40 rounded-full">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="text-emerald-400 text-xs font-medium">Ganadora</span>
-                      </div>
-                    )}
+                      ? 'border-emerald-500 bg-emerald-500/10'
+                      : 'border-slate-800/50 hover:border-slate-700'
+                    } ${!isActive && 'opacity-50 cursor-not-allowed'}`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-white font-medium">{option.description}</h3>
+                      {isWinner && (
+                        <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/20 border border-emerald-500/40 rounded-full">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-emerald-400 text-xs font-medium">Ganadora</span>
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-emerald-400 font-semibold">{option.percentage.toFixed(1)}%</span>
                   </div>
-                  <span className="text-emerald-400 font-semibold">{option.percentage.toFixed(1)}%</span>
-                </div>
-                
-                {/* Progress bar */}
-                <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-2">
-                  <div
-                    className="h-full bg-emerald-500 transition-all"
-                    style={{ width: `${option.percentage}%` }}
-                  />
-                </div>
 
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-400">
-                    {parseFloat(option.totalAmount).toFixed(2)} {prediction.creatorTokenSymbol}
-                  </span>
-                  <span className="text-slate-500">{option.totalBettors} bettors</span>
+                  {/* Progress bar */}
+                  <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-2">
+                    <div
+                      className="h-full bg-emerald-500 transition-all"
+                      style={{ width: `${option.percentage}%` }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-400">
+                      {parseFloat(option.totalAmount).toFixed(2)} {prediction.creatorTokenSymbol}
+                    </span>
+                    <span className="text-slate-500">{option.totalBettors} bettors</span>
+                  </div>
                 </div>
-              </div>
-            );
+              );
             })}
           </div>
 
@@ -764,7 +765,7 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
                       <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
                       <div>
                         <p className="text-yellow-400 font-medium mb-1">You don't have {prediction.creatorTokenSymbol}</p>
-                        <p className="text-yellow-300/80 text-sm">
+                        <p className="text-white text-sm">
                           You need to buy tokens from this creator to be able to bet
                         </p>
                       </div>
@@ -829,7 +830,7 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="mb-4 p-3 bg-slate-800/50 rounded-lg">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-slate-400 text-sm">Winnings to claim:</span>
@@ -895,7 +896,7 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Show declared winning option */}
                     {prediction.winningOption >= 0 && prediction.winningOption < prediction.options.length && (
                       <div className="mb-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
@@ -908,9 +909,9 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
                         </p>
                       </div>
                     )}
-                    
+
                     <p className="text-slate-400 text-sm mb-3">
-                      {cooldownRemaining > 0 
+                      {cooldownRemaining > 0
                         ? 'If you think the declared result is incorrect, you can report it during this period.'
                         : 'The cooldown has ended. The prediction will be confirmed automatically.'
                       }
@@ -999,11 +1000,10 @@ export function PredictionDetailPage({ predictionId, onBack, onBuyTokens }: Pred
                         <button
                           key={index}
                           onClick={() => setSelectedWinner(index)}
-                          className={`w-full p-3 rounded-lg border transition-colors text-left ${
-                            selectedWinner === index
-                              ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
-                              : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600'
-                          }`}
+                          className={`w-full p-3 rounded-lg border transition-colors text-left ${selectedWinner === index
+                            ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                            : 'bg-slate-800/50 border-slate-700 text-slate-300 hover:border-slate-600'
+                            }`}
                         >
                           {option.description}
                         </button>

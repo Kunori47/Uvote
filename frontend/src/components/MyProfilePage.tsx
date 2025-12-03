@@ -306,16 +306,16 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
   // When profile arrives from backend, sync edit form
   useEffect(() => {
     if (profile) {
-    setEditForm({
-      name: profile.name,
-      username: profile.username,
-      bio: profile.bio,
-      category: profile.category,
-      email: profile.email,
-      twitter: profile.socialLinks?.twitter || "",
-      youtube: profile.socialLinks?.youtube || "",
-      twitch: profile.socialLinks?.twitch || "",
-    });
+      setEditForm({
+        name: profile.name,
+        username: profile.username,
+        bio: profile.bio,
+        category: profile.category,
+        email: profile.email,
+        twitter: profile.socialLinks?.twitter || "",
+        youtube: profile.socialLinks?.youtube || "",
+        twitch: profile.socialLinks?.twitch || "",
+      });
       setCoinForm({
         coinSymbol: profile.coinSymbol || "",
         coinValue: profile.coinValue?.toString() || "",
@@ -337,12 +337,12 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
         setProfileError(null);
 
         const user: any = await apiService.getUser(address);
-        
+
         // If no user in backend, create basic profile
         if (!user) {
           const shortAddr = `${address.slice(0, 6)}...${address.slice(-4)}`;
           const followersCount = await apiService.getCreatorFollowersCount(address);
-          
+
           setProfile({
             ...mockUserProfile,
             id: address,
@@ -392,15 +392,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
 
   // Calculate average participants of all user predictions
   useEffect(() => {
-    if (!profile || myPredictionsRaw.length === 0) {
-      if (profile) {
-        setProfile({
-          ...profile,
-          averageParticipants: 0,
-        });
-      }
-      return;
-    }
+    if (myPredictionsRaw.length === 0) return;
 
     // Calculate total participants of all predictions
     let totalParticipants = 0;
@@ -416,30 +408,38 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
     });
 
     // Calculate average
-    const averageParticipants = predictionsWithParticipants > 0 
+    const averageParticipants = predictionsWithParticipants > 0
       ? Math.round(totalParticipants / predictionsWithParticipants)
       : 0;
 
-    setProfile({
-      ...profile,
-      averageParticipants,
+    setProfile((prev) => {
+      if (!prev) return null;
+      if (prev.averageParticipants === averageParticipants) return prev;
+      return {
+        ...prev,
+        averageParticipants,
+      };
     });
-  }, [myPredictionsRaw, profile]);
+  }, [myPredictionsRaw]);
 
   // Load creator coin information (if exists) reusing the same hook as "My Coin"
   useEffect(() => {
     const loadCreatorCoin = async () => {
       // If no wallet connected or hook indicates no token, clear state
-      if (!address || !isConnected || !hasCreatorToken || !myCreatorToken || !profile) {
-        if (profile) {
-          setProfile({
-            ...profile,
-          hasCreatorCoin: false,
-          coinSymbol: undefined,
-          coinValue: undefined,
-          totalEarnings: undefined,
-          });
-        }
+      if (!address || !isConnected) return;
+
+      if (!hasCreatorToken || !myCreatorToken) {
+        setProfile((prev) => {
+          if (!prev) return null;
+          if (!prev.hasCreatorCoin) return prev;
+          return {
+            ...prev,
+            hasCreatorCoin: false,
+            coinSymbol: undefined,
+            coinValue: undefined,
+            totalEarnings: undefined,
+          };
+        });
         return;
       }
 
@@ -447,12 +447,24 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
         // Reuse the data that useMyCreatorToken already calculates
         const earningsEth = await tokenExchangeService.getCreatorEarnings(address);
 
-        setProfile({
-          ...profile,
-          hasCreatorCoin: true,
-          coinSymbol: myCreatorToken.symbol,
-          coinValue: parseFloat(myCreatorToken.price),
-          totalEarnings: parseFloat(earningsEth),
+        setProfile((prev) => {
+          if (!prev) return null;
+
+          // Check if values are the same to avoid re-renders
+          if (prev.hasCreatorCoin === true &&
+            prev.coinSymbol === myCreatorToken.symbol &&
+            prev.coinValue === parseFloat(myCreatorToken.price) &&
+            prev.totalEarnings === parseFloat(earningsEth)) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            hasCreatorCoin: true,
+            coinSymbol: myCreatorToken.symbol,
+            coinValue: parseFloat(myCreatorToken.price),
+            totalEarnings: parseFloat(earningsEth),
+          };
         });
       } catch (e) {
         console.error("Error loading creator coin info:", e);
@@ -460,11 +472,12 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
     };
 
     loadCreatorCoin();
-  }, [address, isConnected, hasCreatorToken, myCreatorToken, profile]);
+  }, [address, isConnected, hasCreatorToken, myCreatorToken]);
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(0)}K`;
+    return num.toString();
     return num.toString();
   };
 
@@ -602,7 +615,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                     {profile.category}
                   </span>
                 </div>
-            <div className="flex items-center gap-4 text-slate-400 mb-3">
+                <div className="flex items-center gap-4 text-slate-400 mb-3">
                   <div className="flex items-center gap-1.5">
                     <Users className="w-4 h-4" />
                     <span>
@@ -700,31 +713,28 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
           <div className="flex items-center gap-6">
             <button
               onClick={() => setActiveTab("predictions")}
-              className={`pb-3 px-1 border-b-2 transition-colors ${
-                activeTab === "predictions"
+              className={`pb-3 px-1 border-b-2 transition-colors ${activeTab === "predictions"
                   ? "border-emerald-500 text-emerald-400"
                   : "border-transparent text-slate-400 hover:text-slate-200"
-              }`}
+                }`}
             >
               Predictions
             </button>
             <button
               onClick={() => setActiveTab("about")}
-              className={`pb-3 px-1 border-b-2 transition-colors ${
-                activeTab === "about"
+              className={`pb-3 px-1 border-b-2 transition-colors ${activeTab === "about"
                   ? "border-emerald-500 text-emerald-400"
                   : "border-transparent text-slate-400 hover:text-slate-200"
-              }`}
+                }`}
             >
               About
             </button>
             <button
               onClick={() => setActiveTab("stats")}
-              className={`pb-3 px-1 border-b-2 transition-colors ${
-                activeTab === "stats"
+              className={`pb-3 px-1 border-b-2 transition-colors ${activeTab === "stats"
                   ? "border-emerald-500 text-emerald-400"
                   : "border-transparent text-slate-400 hover:text-slate-200"
-              }`}
+                }`}
             >
               Stats
             </button>
@@ -967,7 +977,7 @@ export function MyProfilePage({ onBack }: MyProfilePageProps) {
                         {formatNumber(
                           Math.floor(
                             (profile.totalEarnings || 0) /
-                              profile.totalPredictions,
+                            profile.totalPredictions,
                           ),
                         )} DOT
                       </div>

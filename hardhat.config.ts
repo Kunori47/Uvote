@@ -51,9 +51,9 @@ export default defineConfig({
         settings: {
           optimizer: {
             enabled: true,
-            runs: 200,
+            runs: 1, // Reduced from 200 to minimize bytecode size
           },
-          viaIR: true,
+          viaIR: false, // Disabled for Moonbeam compatibility
         },
       },
       production: {
@@ -61,9 +61,9 @@ export default defineConfig({
         settings: {
           optimizer: {
             enabled: true,
-            runs: 200,
+            runs: 1, // Reduced from 200 to minimize bytecode size
           },
-          viaIR: true,
+          viaIR: false, // Disabled for Moonbeam compatibility
         },
       },
     },

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { NETWORK_CONFIG } from '../lib/contracts';
+import { getWalletProvider } from '../lib/walletProvider';
 
 export interface WalletState {
   address: string | null;
@@ -21,15 +22,15 @@ export const useWallet = () => {
 
   // Verificar si hay una wallet compatible instalada (SubWallet o MetaMask)
   const isWalletInstalled = () => {
-    return typeof window !== 'undefined' && typeof window.ethereum !== 'undefined';
+    return getWalletProvider() !== null;
   };
 
   // Conectar wallet
   const connect = async () => {
     if (!isWalletInstalled()) {
-      setState(prev => ({ 
-        ...prev, 
-        error: 'Por favor instala SubWallet (recomendado) o MetaMask' 
+      setState(prev => ({
+        ...prev,
+        error: 'Por favor instala SubWallet (recomendado) o MetaMask'
       }));
       return;
     }
@@ -37,19 +38,24 @@ export const useWallet = () => {
     try {
       setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      
+      const walletProvider = getWalletProvider();
+      if (!walletProvider) {
+        throw new Error('No wallet provider found');
+      }
+
+      const provider = new ethers.BrowserProvider(walletProvider);
+
       // Solicitar acceso a las cuentas
       await provider.send('eth_requestAccounts', []);
-      
+
       // Verificar/Cambiar a la red correcta ANTES de obtener el signer
       const currentChainId = await provider.send('eth_chainId', []);
       const targetChainId = `0x${NETWORK_CONFIG.chainId.toString(16)}`;
-      
+
       if (currentChainId !== targetChainId) {
         console.log('⚠️  Red incorrecta en connect(). Cambiando a Hardhat Local...');
         console.log('   ChainID actual:', currentChainId, '| Esperado:', targetChainId);
-        
+
         try {
           // Primero intentar agregar la red (por si no existe)
           try {
@@ -70,7 +76,7 @@ export const useWallet = () => {
               console.log('ℹ️  La red ya existe');
             }
           }
-          
+
           // Ahora cambiar a la red
           await provider.send('wallet_switchEthereumChain', [
             { chainId: targetChainId }
@@ -81,7 +87,7 @@ export const useWallet = () => {
           // Ignorar error "Duplicate request" - significa que ya está en la red correcta
           if (switchError.code === -32602 && switchError.message?.includes('Duplicate')) {
             console.log('Red ya está activa, continuando...');
-          } 
+          }
           // Otros errores los lanzamos
           else {
             console.error('Error cambiando de red:', switchError);
@@ -89,22 +95,22 @@ export const useWallet = () => {
           }
         }
       }
-      
+
       // Esperar un momento para que la red se actualice
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       // Obtener el signer y datos de la cuenta
       const signer = await provider.getSigner();
       const address = await signer.getAddress();
-      
+
       // Verificar que estamos en la red correcta
       const chainId = await provider.send('eth_chainId', []);
       console.log('🔗 ChainID actual:', chainId, '(esperado:', targetChainId, ')');
-      
+
       // Obtener balance
       const balanceBigInt = await provider.getBalance(address);
       const balance = ethers.formatEther(balanceBigInt);
-      
+
       console.log('💰 Balance leído:', balance, 'ETH');
       console.log('📍 Dirección:', address);
 
@@ -139,14 +145,16 @@ export const useWallet = () => {
   // Manually refresh balance
   const refreshBalance = async () => {
     if (!isWalletInstalled() || !state.address) return;
-    
+
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum!);
+      const walletProvider = getWalletProvider();
+      if (!walletProvider) return;
+      const provider = new ethers.BrowserProvider(walletProvider);
       const balanceBigInt = await provider.getBalance(state.address);
       const balance = ethers.formatEther(balanceBigInt);
-      
+
       console.log('🔄 Balance refreshed:', balance, 'ETH');
-      
+
       setState(prev => ({
         ...prev,
         balance,
@@ -166,12 +174,14 @@ export const useWallet = () => {
       } else {
         // Update with new account without calling full connect()
         try {
-          const provider = new ethers.BrowserProvider(window.ethereum!);
+          const walletProvider = getWalletProvider();
+          if (!walletProvider) return;
+          const provider = new ethers.BrowserProvider(walletProvider);
           const signer = await provider.getSigner();
           const address = await signer.getAddress();
           const balanceBigInt = await provider.getBalance(address);
           const balance = ethers.formatEther(balanceBigInt);
-          
+
           setState(prev => ({
             ...prev,
             address,
@@ -189,12 +199,13 @@ export const useWallet = () => {
       window.location.reload();
     };
 
-    window.ethereum?.on('accountsChanged', handleAccountsChanged);
-    window.ethereum?.on('chainChanged', handleChainChanged);
+    const walletProvider = getWalletProvider();
+    walletProvider?.on('accountsChanged', handleAccountsChanged);
+    walletProvider?.on('chainChanged', handleChainChanged);
 
     return () => {
-      window.ethereum?.removeListener('accountsChanged', handleAccountsChanged);
-      window.ethereum?.removeListener('chainChanged', handleChainChanged);
+      walletProvider?.removeListener('accountsChanged', handleAccountsChanged);
+      walletProvider?.removeListener('chainChanged', handleChainChanged);
     };
   }, []);
 
@@ -205,20 +216,22 @@ export const useWallet = () => {
       if (state.isConnected) return; // Already connected, do nothing
 
       try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
+        const walletProvider = getWalletProvider();
+        if (!walletProvider) return;
+        const provider = new ethers.BrowserProvider(walletProvider);
         const accounts = await provider.send('eth_accounts', []);
-        
+
         if (accounts.length > 0) {
           // Verify ChainID and switch if necessary
           const chainId = await provider.send('eth_chainId', []);
           const targetChainId = `0x${NETWORK_CONFIG.chainId.toString(16)}`;
           console.log('🔄 Auto-connect - ChainID:', chainId, '(esperado:', targetChainId, ')');
-          
+
           // If not on correct network, switch
           if (chainId !== targetChainId) {
             console.log('⚠️  Wrong network. Switching to Hardhat Local...');
             console.log('   Current ChainID:', chainId, '| Expected:', targetChainId);
-            
+
             try {
               // First try to add network (in case it doesn't exist)
               console.log('📝 Adding/configuring Hardhat Local network...');
@@ -242,17 +255,17 @@ export const useWallet = () => {
                   console.warn('⚠️  Could not add network (may already exist):', addError.message);
                 }
               }
-              
+
               // Now try to switch to network
               console.log('🔄 Switching to Hardhat Local network...');
               await provider.send('wallet_switchEthereumChain', [
                 { chainId: targetChainId }
               ]);
               console.log('✅ Network switch requested');
-              
+
               // Wait more time for SubWallet to process the change
               await new Promise(resolve => setTimeout(resolve, 2000));
-              
+
               // Verify the change was completed
               const newChainId = await provider.send('eth_chainId', []);
               if (newChainId === targetChainId) {
@@ -265,16 +278,16 @@ export const useWallet = () => {
               // Continue anyway to show error to user
             }
           }
-          
+
           // Update state
           const signer = await provider.getSigner();
           const address = await signer.getAddress();
           const balanceBigInt = await provider.getBalance(address);
           const balance = ethers.formatEther(balanceBigInt);
-          
+
           console.log('💰 Auto-connect - Balance:', balance, 'ETH');
           console.log('📍 Auto-connect - Address:', address);
-          
+
           setState({
             address,
             balance,
@@ -295,9 +308,11 @@ export const useWallet = () => {
   // Detect which wallet is installed
   const getWalletType = () => {
     if (!isWalletInstalled()) return null;
-    // SubWallet identifies as SubWallet in window.ethereum
-    if (window.ethereum?.isSubWallet) return 'SubWallet';
-    if (window.ethereum?.isMetaMask) return 'MetaMask';
+    const walletProvider = getWalletProvider();
+
+    // Check if it's SubWallet (either via isSubWallet flag or if the provider itself is SubWallet)
+    if (walletProvider?.isSubWallet || (typeof window !== 'undefined' && (window as any).SubWallet)) return 'SubWallet';
+    if (walletProvider?.isMetaMask) return 'MetaMask';
     return 'Unknown';
   };
 

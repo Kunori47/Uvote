@@ -75,9 +75,9 @@ export const CONTRACT_ADDRESSES = NETWORK_CONFIGS[networkType].contractAddresses
 
 // Símbolo de moneda nativa para mostrar en la UI
 // En Moonbeam/Moonbase mostramos DOT, en local ETH
-export const NATIVE_CURRENCY_SYMBOL = 
-  networkType === 'moonbase' || networkType === 'moonbeam' 
-    ? 'DOT' 
+export const NATIVE_CURRENCY_SYMBOL =
+  networkType === 'moonbase' || networkType === 'moonbeam'
+    ? 'DOT'
     : 'ETH';
 
 // Provider para leer datos (sin necesidad de wallet)
@@ -87,11 +87,14 @@ export const getProvider = () => {
 
 // Provider con signer para escribir transacciones (requiere wallet)
 export const getSigner = async () => {
-  if (!window.ethereum) {
-    throw new Error('MetaMask no está instalado');
+  const { getWalletProvider } = await import('./walletProvider');
+  const provider = getWalletProvider();
+
+  if (!provider) {
+    throw new Error('No se encontró ninguna wallet instalada (SubWallet o MetaMask)');
   }
-  
-  const provider = new ethers.BrowserProvider(window.ethereum);
-  return await provider.getSigner();
+
+  const browserProvider = new ethers.BrowserProvider(provider);
+  return await browserProvider.getSigner();
 };
 

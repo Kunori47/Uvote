@@ -53,14 +53,13 @@ interface MyVotingsPageProps {
 export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
   const { address, isConnected } = useWallet();
   const { bets, loading, error } = useMyBets(address);
-  
+
   const [statusFilter, setStatusFilter] = useState('all');
   const [resultFilter, setResultFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [predictionImages, setPredictionImages] = useState<Record<string, string>>({});
   const [potentialReturns, setPotentialReturns] = useState<Record<string, string>>({});
-  const [predictionOptions, setPredictionOptions] = useState<Record<string, Array<{ description: string; totalAmount: string }>>>({});
-  const [loadingImages, setLoadingImages] = useState(false);
+  const [loadingData, setLoadingData] = useState(false);
 
   // Filter bets
   const filteredBets = useMemo(() => {
@@ -89,7 +88,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
     const activeBets = bets.filter(b => b.predictionStatus <= 1).length;
     const wonBets = bets.filter(b => b.canClaim).length;
     const lostBets = bets.filter(b => b.predictionStatus === 4 && !b.canClaim).length;
-    
+
     return {
       total: bets.length,
       active: activeBets,
@@ -106,19 +105,18 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
     return 'lost';
   };
 
-  // Load prediction images
+  // Load images and calculate potential returns
   useEffect(() => {
-    const loadImages = async () => {
+    const loadData = async () => {
       if (bets.length === 0) return;
-      
-      setLoadingImages(true);
+
+      setLoadingData(true);
       const imageMap: Record<string, string> = {};
       const returnsMap: Record<string, string> = {};
-      const optionsMap: Record<string, Array<{ description: string; totalAmount: string }>> = {};
 
       await Promise.all(
         bets.map(async (bet) => {
-          // Cargar imagen
+          // Load image (lightweight API call)
           try {
             const img = await apiService.getPredictionImage(
               bet.predictionId,
@@ -130,21 +128,6 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
             }
           } catch (err) {
             console.error(`Error loading image for prediction ${bet.predictionId}:`, err);
-          }
-
-          // Load options for predictions in cooldown or confirmed (with 2 options)
-          if ((bet.predictionStatus === 2 || bet.predictionStatus === 4) && bet.predictionStatus >= 0) {
-            try {
-              const options = await predictionMarketService.getPredictionOptions(bet.predictionId);
-              if (options.length === 2) {
-                optionsMap[bet.predictionId] = options.map(opt => ({
-                  description: opt.description,
-                  totalAmount: opt.totalAmount,
-                }));
-              }
-            } catch (err) {
-              console.error(`Error loading options for prediction ${bet.predictionId}:`, err);
-            }
           }
 
           // Calculate potential return for active predictions
@@ -178,11 +161,10 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
 
       setPredictionImages(imageMap);
       setPotentialReturns(returnsMap);
-      setPredictionOptions(optionsMap);
-      setLoadingImages(false);
+      setLoadingData(false);
     };
 
-    loadImages();
+    loadData();
   }, [bets, address]);
 
   // Format date
@@ -196,7 +178,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
 
   // Format full date for end date
   const formatFullDate = (timestamp: number) => {
-    if (timestamp === 0 || timestamp >= 2**256 - 1) return '∞';
+    if (timestamp === 0 || timestamp >= 2 ** 256 - 1) return '∞';
     return new Date(timestamp * 1000).toLocaleDateString('es-ES', {
       year: 'numeric',
       month: '2-digit',
@@ -249,7 +231,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
       {/* Header with stats */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-100 mb-6">My Votes</h1>
-        
+
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
           <div className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-4">
             <div className="text-slate-500 text-sm mb-1">Total</div>
@@ -282,7 +264,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
             <Filter className="w-4 h-4" />
             Filters
           </button>
-          
+
           {(statusFilter !== 'all' || resultFilter !== 'all') && (
             <button
               onClick={() => {
@@ -306,18 +288,17 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
                   <button
                     key={filter.id}
                     onClick={() => setStatusFilter(filter.id)}
-                    className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
-                      statusFilter === filter.id
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-slate-300'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-all ${statusFilter === filter.id
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-slate-300'
+                      }`}
                   >
                     {filter.label}
                   </button>
                 ))}
               </div>
             </div>
-            
+
             <div>
               <div className="text-slate-400 text-sm mb-2">Result</div>
               <div className="flex flex-wrap gap-2">
@@ -325,11 +306,10 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
                   <button
                     key={filter.id}
                     onClick={() => setResultFilter(filter.id)}
-                    className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
-                      resultFilter === filter.id
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-slate-300'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-all ${resultFilter === filter.id
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-slate-300'
+                      }`}
                   >
                     {filter.label}
                   </button>
@@ -346,7 +326,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
           <Trophy className="w-16 h-16 text-slate-600 mb-4" />
           <h3 className="text-xl font-bold text-slate-300 mb-2">No bets</h3>
           <p className="text-slate-500">
-            {bets.length === 0 
+            {bets.length === 0
               ? 'You haven\'t bet on any prediction yet'
               : 'No bets match the filters'}
           </p>
@@ -362,7 +342,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
             const betReturn = returnAmount ? parseFloat(returnAmount) : 0;
             const betAmount = parseFloat(bet.totalBetAmount);
             const profit = betReturn - betAmount;
-            
+
             return (
               <div
                 key={bet.predictionId}
@@ -382,14 +362,13 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
                       }
                     }}
                   />
-                  
+
                   {/* Estado en esquina superior derecha */}
                   <div className="absolute top-2 right-2">
-                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-                      isFinished
-                        ? 'bg-slate-900/90 backdrop-blur-sm text-slate-300 border border-slate-700/50'
-                        : 'bg-blue-500/90 backdrop-blur-sm text-white'
-                    }`}>
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${isFinished
+                      ? 'bg-slate-900/90 backdrop-blur-sm text-slate-300 border border-slate-700/50'
+                      : 'bg-blue-500/90 backdrop-blur-sm text-white'
+                      }`}>
                       <Clock className="w-3.5 h-3.5" />
                       {STATUS_NAMES[bet.predictionStatus]}
                     </div>
@@ -416,10 +395,10 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
                         {Array.from(new Set(bet.bets.map(b => b.optionIndex))).map((optionIndex, idx) => {
                           const option = bet.bets.find(b => b.optionIndex === optionIndex);
                           if (!option) return null;
-                          
+
                           const color = getColorForOption(option.optionDescription, optionIndex);
                           return (
-                            <span 
+                            <span
                               key={idx}
                               className={`inline-block px-2.5 py-1 ${color.bg} border ${color.border} ${color.text} rounded-lg text-sm font-medium`}
                             >
@@ -428,7 +407,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
                           );
                         })}
                       </div>
-                      
+
                       <div className="flex items-center gap-3 text-slate-500 text-sm">
                         <div className="flex items-center gap-1.5">
                           <Calendar className="w-4 h-4" />
@@ -440,7 +419,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
                         </div>
                       </div>
                     </div>
-                </div>
+                  </div>
 
                   {/* Bet details - Bottom section */}
                   <div className="grid grid-cols-3 gap-x-6 gap-y-2 pt-4 border-t border-slate-800/50">
@@ -453,9 +432,9 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
                     {/* Return or Potential Return */}
                     {(() => {
                       // Determine if there are loaded options and it's a 2-option prediction
-                      const options = predictionOptions[bet.predictionId];
-                      const hasTwoOptions = options && options.length === 2;
-                      
+                      const options = bet.options.length === 2 ? bet.options : null;
+                      const hasTwoOptions = options !== null;
+
                       // If there are 2 options and the prediction is in cooldown or confirmed, find the most bet
                       let mostBetOption: { description: string; totalAmount: string } | null = null;
                       if (hasTwoOptions && (bet.predictionStatus === 2 || bet.predictionStatus === 4)) {
@@ -463,7 +442,7 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
                           return parseFloat(opt.totalAmount) > parseFloat(max.totalAmount) ? opt : max;
                         });
                       }
-                      
+
                       return isFinished && bet.canClaim ? (
                         <>
                           <div className="flex flex-col gap-0.5">
@@ -511,19 +490,19 @@ export function MyVotingsPage({ onViewPrediction }: MyVotingsPageProps) {
                           </div>
                         </>
                       ) : (
-                      <>
-                        {returnAmount && (
+                        <>
+                          {returnAmount && (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-slate-500 text-xs">Potential Return</span>
+                              <span className="text-blue-400 font-semibold text-base">{betReturn.toFixed(2)} {bet.creatorTokenSymbol}</span>
+                            </div>
+                          )}
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-slate-500 text-xs">Potential Return</span>
-                            <span className="text-blue-400 font-semibold text-base">{betReturn.toFixed(2)} {bet.creatorTokenSymbol}</span>
+                            <span className="text-slate-500 text-xs">Ends</span>
+                            <span className="text-slate-300 font-semibold text-base">{formatFullDate(bet.closesAt)}</span>
                           </div>
-                        )}
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-slate-500 text-xs">Ends</span>
-                          <span className="text-slate-300 font-semibold text-base">{formatFullDate(bet.closesAt)}</span>
-                        </div>
-                      </>
-                    );
+                        </>
+                      );
                     })()}
                   </div>
                 </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { predictionMarketService } from '../lib/contractService';
+import { predictionMarketService, creatorTokenService } from '../lib/contractService';
 
 export interface CreatorPrediction {
   id: string;
@@ -15,6 +15,9 @@ export interface CreatorPrediction {
   cooldownEndsAt: number;
   optionsCount: number;
   participantCount: number;
+  options: { index: number; description: string; totalAmount: string; totalBettors: number }[];
+  creatorTokenSymbol: string;
+  creatorToken: string;
 }
 
 export const useCreatorPredictions = (creatorAddress: string | null) => {
@@ -35,45 +38,79 @@ export const useCreatorPredictions = (creatorAddress: string | null) => {
 
       console.log('🎯 Cargando predicciones del creador:', creatorAddress);
 
-      const creatorPredictions: CreatorPrediction[] = [];
+      // Get actual number of predictions from contract
+      const nextId = await predictionMarketService.getPrediction('999999').catch(() => null);
+      if (!nextId) {
+        setPredictions([]);
+        setLoading(false);
+        return;
+      }
 
-      // Iterar por todas las predicciones posibles (limitado a primeras 100)
-      for (let i = 1; i <= 100; i++) {
-        try {
-          const prediction = await predictionMarketService.getPrediction(i.toString());
-          
-          if (!prediction || prediction.id === '0') {
-            break; // No hay más predicciones
-          }
+      // Determine how many predictions to check (reasonable limit)
+      const maxToCheck = 50; // Reduced from 100 to avoid rate limits
 
-          // Verificar si esta predicción es del creador
-          if (prediction.creator.toLowerCase() === creatorAddress.toLowerCase()) {
-            const options = await predictionMarketService.getPredictionOptions(i.toString());
-            
-            const participantCount = options.reduce((sum, opt) => sum + opt.totalBettors, 0);
+      // Get all predictions in BATCHES to avoid rate limiting
+      const BATCH_SIZE = 5; // Process 5 at a time (reduced for public RPC)
+      const allPredictions = [];
 
-            creatorPredictions.push({
-              id: prediction.id,
-              title: prediction.title,
-              description: prediction.description,
-              status: prediction.status,
-              totalPool: prediction.totalPool,
-              createdAt: prediction.createdAt,
-              closesAt: prediction.closesAt,
-              resolvedAt: prediction.resolvedAt,
-              winningOption: prediction.winningOption,
-              reportCount: prediction.reportCount,
-              cooldownEndsAt: prediction.cooldownEndsAt,
-              optionsCount: options.length,
-              participantCount,
-            });
-          }
-        } catch (err) {
-          // Si falla, probablemente no existe la predicción, continuar
-          console.log(`Predicción ${i} no existe o error:`, err);
-          break;
+      for (let batchStart = 1; batchStart <= maxToCheck; batchStart += BATCH_SIZE) {
+        const batchEnd = Math.min(batchStart + BATCH_SIZE - 1, maxToCheck);
+        const batchPromises = [];
+
+        for (let i = batchStart; i <= batchEnd; i++) {
+          batchPromises.push(
+            predictionMarketService.getPrediction(i.toString())
+              .catch(() => null)
+          );
+        }
+
+        const batchResults = await Promise.all(batchPromises);
+        allPredictions.push(...batchResults);
+
+        // Increased delay between batches for public RPC (150ms)
+        if (batchEnd < maxToCheck) {
+          await new Promise(resolve => setTimeout(resolve, 150));
         }
       }
+
+      // Filter out null/invalid predictions and match creator
+      const validPredictions = allPredictions.filter(
+        (pred) => pred && pred.id !== '0' && pred.creator.toLowerCase() === creatorAddress.toLowerCase()
+      );
+
+      // Now load options and token info in parallel for all creator predictions
+      const creatorPredictions: CreatorPrediction[] = await Promise.all(
+        validPredictions.map(async (prediction) => {
+          if (!prediction) return null; // TypeScript guard
+
+          // Load options and token info in parallel
+          const [options, tokenInfo] = await Promise.all([
+            predictionMarketService.getPredictionOptions(prediction.id),
+            creatorTokenService.getTokenInfo(prediction.creatorToken).catch(() => ({ symbol: 'uVotes' }))
+          ]);
+
+          const participantCount = options.reduce((sum, opt) => sum + opt.totalBettors, 0);
+
+          return {
+            id: prediction.id,
+            title: prediction.title,
+            description: prediction.description,
+            status: prediction.status,
+            totalPool: prediction.totalPool,
+            createdAt: prediction.createdAt,
+            closesAt: prediction.closesAt,
+            resolvedAt: prediction.resolvedAt,
+            winningOption: prediction.winningOption,
+            reportCount: prediction.reportCount,
+            cooldownEndsAt: prediction.cooldownEndsAt,
+            optionsCount: options.length,
+            participantCount,
+            options,
+            creatorTokenSymbol: tokenInfo.symbol,
+            creatorToken: prediction.creatorToken,
+          };
+        })
+      ).then(results => results.filter((p): p is CreatorPrediction => p !== null));
 
       console.log(`✅ Encontradas ${creatorPredictions.length} predicciones del creador`);
       setPredictions(creatorPredictions);

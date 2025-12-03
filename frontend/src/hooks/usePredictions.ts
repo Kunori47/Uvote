@@ -43,6 +43,7 @@ export const usePredictions = () => {
         provider
       );
 
+
       // Obtener el nextPredictionId para saber cuántas predicciones hay
       const nextId = await predictionMarket.nextPredictionId();
       const totalPredictions = Number(nextId) - 1;
@@ -53,59 +54,83 @@ export const usePredictions = () => {
         return;
       }
 
-      // Obtener todas las predicciones en paralelo
-      const predictionPromises = [];
-      for (let i = 1; i <= totalPredictions; i++) {
-        predictionPromises.push(predictionMarket.predictions(i));
+      // Get predictions in BATCHES to avoid rate limiting
+      const BATCH_SIZE = 5; // Process 5 at a time (reduced for public RPC)
+      const predictionsData = [];
+
+      for (let batchStart = 1; batchStart <= totalPredictions; batchStart += BATCH_SIZE) {
+        const batchEnd = Math.min(batchStart + BATCH_SIZE - 1, totalPredictions);
+        const batchPromises = [];
+
+        for (let i = batchStart; i <= batchEnd; i++) {
+          batchPromises.push(predictionMarket.predictions(i));
+        }
+
+        const batchResults = await Promise.all(batchPromises);
+        predictionsData.push(...batchResults);
+
+        // Increased delay between batches for public RPC (150ms)
+        if (batchEnd < totalPredictions) {
+          await new Promise(resolve => setTimeout(resolve, 150));
+        }
       }
 
-      const predictionsData = await Promise.all(predictionPromises);
+      // Format predictions - also batch the options loading
+      const formattedPredictions: PredictionData[] = [];
 
-      // Formatear las predicciones
-      const formattedPredictions: PredictionData[] = await Promise.all(
-        predictionsData.map(async (pred, index) => {
-          const predictionId = index + 1;
-          
-          // Obtener las opciones (necesitamos llamar a getOptions o similar)
-          // Como el contrato no tiene getter para options[], las obtendremos iterando
-          const options: PredictionOption[] = [];
-          let optionIndex = 0;
-          let hasMoreOptions = true;
+      for (let batchStart = 0; batchStart < predictionsData.length; batchStart += BATCH_SIZE) {
+        const batchEnd = Math.min(batchStart + BATCH_SIZE, predictionsData.length);
+        const batchPredictions = predictionsData.slice(batchStart, batchEnd);
 
-          while (hasMoreOptions) {
-            try {
-              // Intentar obtener la opción en este índice
-              const option = await predictionMarket.getBetOption(predictionId, optionIndex);
-              options.push({
-                description: option[0], // description
-                totalAmount: formatEther(option[1]), // totalAmount
-                totalBettors: Number(option[2]), // totalBettors
-              });
-              optionIndex++;
-            } catch {
-              // Si falla, no hay más opciones
-              hasMoreOptions = false;
+        const formattedBatch = await Promise.all(
+          batchPredictions.map(async (pred, relativeIndex) => {
+            const predictionId = batchStart + relativeIndex + 1;
+
+            // Obtener las opciones
+            const options: PredictionOption[] = [];
+            let optionIndex = 0;
+            let hasMoreOptions = true;
+
+            while (hasMoreOptions) {
+              try {
+                const option = await predictionMarket.getBetOption(predictionId, optionIndex);
+                options.push({
+                  description: option[0],
+                  totalAmount: formatEther(option[1]),
+                  totalBettors: Number(option[2]),
+                });
+                optionIndex++;
+              } catch {
+                hasMoreOptions = false;
+              }
             }
-          }
 
-          return {
-            id: predictionId.toString(),
-            creator: pred.creator,
-            creatorToken: pred.creatorToken,
-            title: pred.title,
-            description: pred.description,
-            options,
-            createdAt: Number(pred.createdAt),
-            closesAt: Number(pred.closesAt),
-            resolvedAt: Number(pred.resolvedAt),
-            status: Number(pred.status),
-            winningOption: Number(pred.winningOption),
-            cooldownEndsAt: Number(pred.cooldownEndsAt),
-            reportCount: Number(pred.reportCount),
-            totalPool: formatEther(pred.totalPool),
-          };
-        })
-      );
+            return {
+              id: predictionId.toString(),
+              creator: pred.creator,
+              creatorToken: pred.creatorToken,
+              title: pred.title,
+              description: pred.description,
+              options,
+              createdAt: Number(pred.createdAt),
+              closesAt: Number(pred.closesAt),
+              resolvedAt: Number(pred.resolvedAt),
+              status: Number(pred.status),
+              winningOption: Number(pred.winningOption),
+              cooldownEndsAt: Number(pred.cooldownEndsAt),
+              reportCount: Number(pred.reportCount),
+              totalPool: formatEther(pred.totalPool),
+            };
+          })
+        );
+
+        formattedPredictions.push(...formattedBatch);
+
+        // Increased delay between batches for public RPC (150ms)
+        if (batchEnd < predictionsData.length) {
+          await new Promise(resolve => setTimeout(resolve, 150));
+        }
+      }
 
       setPredictions(formattedPredictions);
     } catch (err: any) {

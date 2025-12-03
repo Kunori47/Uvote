@@ -4,26 +4,26 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 // Generar token de autenticación con firma de wallet
 export const generateAuthToken = async (address: string, signer: ethers.Signer): Promise<string> => {
-  const nonce = Math.random().toString(36).substring(2, 15) + 
-                Math.random().toString(36).substring(2, 15) + 
-                Date.now().toString(36);
-  
+  const nonce = Math.random().toString(36).substring(2, 15) +
+    Math.random().toString(36).substring(2, 15) +
+    Date.now().toString(36);
+
   const message = `Sign this message to authenticate with Uvote:\n\nAddress: ${address}\nNonce: ${nonce}\n\nThis request will not trigger a blockchain transaction.`;
-  
+
   const signature = await signer.signMessage(message);
-  
+
   const tokenData = {
     message,
     signature,
     address,
   };
-  
+
   return btoa(JSON.stringify(tokenData));
 };
 
 export const apiService = {
   // ============ USUARIOS ============
-  
+
   // Obtener perfil de usuario
   async getUser(address: string) {
     try {
@@ -55,12 +55,12 @@ export const apiService = {
       },
       body: JSON.stringify(data),
     });
-    
+
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || 'Error creating/updating user');
     }
-    
+
     return await res.json();
   },
 
@@ -79,12 +79,12 @@ export const apiService = {
       },
       body: JSON.stringify(data),
     });
-    
+
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || 'Error updating user');
     }
-    
+
     return await res.json();
   },
 
@@ -113,7 +113,7 @@ export const apiService = {
   },
 
   // ============ CREADORES ============
-  
+
   // Listar todos los creadores
   async getCreators(limit: number = 50, offset: number = 0) {
     try {
@@ -139,7 +139,7 @@ export const apiService = {
   },
 
   // ============ TOKENS ============
-  
+
   // Obtener metadata del token
   async getToken(tokenAddress: string) {
     try {
@@ -171,12 +171,12 @@ export const apiService = {
       },
       body: JSON.stringify(data),
     });
-    
+
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || 'Error registering token');
     }
-    
+
     return await res.json();
   },
 
@@ -193,17 +193,17 @@ export const apiService = {
       },
       body: JSON.stringify(data),
     });
-    
+
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || 'Error updating token');
     }
-    
+
     return await res.json();
   },
 
   // ============ SUSCRIPCIONES ============
-  
+
   // Suscribirse a creador
   async subscribe(creatorAddress: string, authToken: string) {
     const res = await fetch(`${API_BASE_URL}/api/subscriptions`, {
@@ -214,12 +214,12 @@ export const apiService = {
       },
       body: JSON.stringify({ creator_address: creatorAddress }),
     });
-    
+
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || 'Error subscribing');
     }
-    
+
     return await res.json();
   },
 
@@ -231,12 +231,12 @@ export const apiService = {
         'Authorization': `Bearer ${authToken}`,
       },
     });
-    
+
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || 'Error unsubscribing');
     }
-    
+
     return await res.json();
   },
 
@@ -253,13 +253,13 @@ export const apiService = {
   },
 
   // ============ IMÁGENES ============
-  
+
   // Subir imagen a Supabase Storage
-  async uploadImage(file: File, type: 'profile' | 'moneda' | 'prediction', authToken: string) {
+  async uploadImage(file: File, type: 'profile' | 'coin' | 'prediction', authToken: string) {
     const formData = new FormData();
     formData.append('image', file);
     formData.append('type', type);
-    
+
     const res = await fetch(`${API_BASE_URL}/api/images/upload`, {
       method: 'POST',
       headers: {
@@ -267,12 +267,12 @@ export const apiService = {
       },
       body: formData,
     });
-    
+
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || 'Error uploading image');
     }
-    
+
     return await res.json();
   },
 

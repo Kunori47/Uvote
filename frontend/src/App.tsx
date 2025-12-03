@@ -92,7 +92,12 @@ export default function App() {
               }}
             />
           ) : currentPage === 'my-coin' ? (
-            <MyCoinPage />
+            <MyCoinPage 
+              onCreateToken={() => {
+                setPreviousPage('my-coin');
+                setCurrentPage('create-token');
+              }}
+            />
           ) : currentPage === 'prediction-detail' && selectedPredictionId ? (
             <PredictionDetailPage 
               predictionId={selectedPredictionId}
@@ -113,6 +118,7 @@ export default function App() {
             <CreatorProfilePage
               creatorId={selectedCreatorId}
               onBack={() => setCurrentPage('my-subscriptions')}
+              onViewPrediction={(id) => handleViewPrediction(id, false)}
             />
           ) : currentPage === 'my-profile' ? (
             <MyProfilePage onBack={() => setCurrentPage('home')} />

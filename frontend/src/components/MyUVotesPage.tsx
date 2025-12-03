@@ -59,36 +59,29 @@ interface MyUVotesPageProps {
 export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesPageProps) {
   const { address, isConnected } = useWallet();
   const { predictions, loading, error } = useCreatorPredictions(address);
-  
+
   const [statusFilter, setStatusFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
   const [predictionImages, setPredictionImages] = useState<Record<string, string>>({});
   const [predictionTags, setPredictionTags] = useState<Record<string, string[]>>({});
-  const [predictionOptions, setPredictionOptions] = useState<Record<string, Array<{ description: string; totalAmount: string; totalBettors: number }>>>({});
-  const [predictionTokenSymbols, setPredictionTokenSymbols] = useState<Record<string, string>>({});
-  const [loadingMetadata, setLoadingMetadata] = useState(false);
+  const [loadingImages, setLoadingImages] = useState(false);
 
-  // Load images, tags and prediction options
+  // Load only images and tags (lightweight API calls, not blockchain calls)
   useEffect(() => {
-    const loadPredictionMetadata = async () => {
+    const loadPredictionImages = async () => {
       if (predictions.length === 0) {
         setPredictionImages({});
         setPredictionTags({});
-        setPredictionOptions({});
-        setPredictionTokenSymbols({});
-      return;
-    }
-    
-    try {
-        setLoadingMetadata(true);
+        return;
+      }
+
+      try {
+        setLoadingImages(true);
         const imageMap: Record<string, string> = {};
         const tagMap: Record<string, string[]> = {};
-        const optionsMap: Record<string, Array<{ description: string; totalAmount: string; totalBettors: number }>> = {};
-        const tokenSymbolMap: Record<string, string> = {};
 
         await Promise.all(
           predictions.map(async (pred) => {
-            // Load image and tags
             try {
               const img = await apiService.getPredictionImage(
                 pred.id,
@@ -106,43 +99,19 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
             } catch (err) {
               console.error(`Error loading image for prediction ${pred.id}:`, err);
             }
-
-            // Load options
-            try {
-              const options = await predictionMarketService.getPredictionOptions(pred.id);
-              optionsMap[pred.id] = options;
-            } catch (err) {
-              console.error(`Error loading options for prediction ${pred.id}:`, err);
-            }
-
-            // Load creator token symbol
-            try {
-              const predictionData = await predictionMarketService.getPrediction(pred.id);
-              if (predictionData && predictionData.creatorToken) {
-                const tokenInfo = await creatorTokenService.getTokenInfo(predictionData.creatorToken);
-                tokenSymbolMap[pred.id] = tokenInfo.symbol;
-              } else {
-                tokenSymbolMap[pred.id] = 'uVotes'; // Fallback
-              }
-            } catch (err) {
-              console.error(`Error loading token symbol for prediction ${pred.id}:`, err);
-              tokenSymbolMap[pred.id] = 'uVotes'; // Fallback
-            }
           })
         );
 
         setPredictionImages(imageMap);
         setPredictionTags(tagMap);
-        setPredictionOptions(optionsMap);
-        setPredictionTokenSymbols(tokenSymbolMap);
       } catch (err) {
-        console.error('Error loading prediction metadata:', err);
-    } finally {
-        setLoadingMetadata(false);
+        console.error('Error loading prediction images:', err);
+      } finally {
+        setLoadingImages(false);
       }
     };
 
-    loadPredictionMetadata();
+    loadPredictionImages();
   }, [predictions]);
 
   // Formatear fecha
@@ -154,7 +123,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
 
   // Format end date
   const formatEndDate = (timestamp: number) => {
-    if (timestamp === 0 || timestamp >= 2**256 - 1) return '∞';
+    if (timestamp === 0 || timestamp >= 2 ** 256 - 1) return '∞';
     const date = new Date(timestamp * 1000);
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
@@ -186,8 +155,8 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
     const closedPredictions = predictions.filter(p => p.status === 1).length;
     const cooldownPredictions = predictions.filter(p => p.status === 2).length;
     const finishedPredictions = predictions.filter(p => p.status === 4).length;
-    
-      // Creators don't earn from predictions, only from token sales
+
+    // Creators don't earn from predictions, only from token sales
     const estimatedEarnings = 0;
 
     return {
@@ -305,7 +274,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
             <Filter className="w-4 h-4" />
             Filters
           </button>
-          
+
           {statusFilter !== 'all' && (
             <button
               onClick={() => setStatusFilter('all')}
@@ -325,11 +294,10 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
                 <button
                   key={filter.id}
                   onClick={() => setStatusFilter(filter.id)}
-                  className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
-                    statusFilter === filter.id
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-slate-300'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-sm transition-all ${statusFilter === filter.id
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-slate-300'
+                    }`}
                 >
                   {filter.label}
                 </button>
@@ -345,7 +313,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
           <BarChart3 className="w-16 h-16 text-slate-600 mb-4" />
           <h3 className="text-xl font-bold text-slate-300 mb-2">No predictions</h3>
           <p className="text-slate-500 mb-6">
-            {predictions.length === 0 
+            {predictions.length === 0
               ? 'You haven\'t created any predictions yet'
               : 'No predictions match the filters'}
           </p>
@@ -359,7 +327,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
             </button>
           )}
         </div>
-      ) : loadingMetadata ? (
+      ) : loadingImages ? (
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 className="w-12 h-12 text-emerald-400 animate-spin mb-4" />
           <p className="text-slate-400">Loading prediction information...</p>
@@ -372,10 +340,10 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
             const imageUrl = predictionImages[pred.id] || `https://api.dicebear.com/7.x/shapes/svg?seed=${pred.id}`;
             const tags = predictionTags[pred.id] || [];
             const primaryTag = tags[0] || 'other';
-            const options = predictionOptions[pred.id] || [];
+            const options = pred.options;
             const totalPool = parseFloat(pred.totalPool);
-            const tokenSymbol = predictionTokenSymbols[pred.id] || 'uVotes';
-            
+            const tokenSymbol = pred.creatorTokenSymbol;
+
             return (
               <div
                 key={pred.id}
@@ -395,7 +363,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
                       }
                     }}
                   />
-                  
+
                 </div>
 
                 {/* Content - Right */}
@@ -405,20 +373,19 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
                     {/* Title and Status */}
                     <div className="flex items-start justify-between gap-4">
                       <h3 className="text-xl font-bold text-slate-100 line-clamp-2 leading-tight flex-1">
-                      {pred.title}
-                    </h3>
+                        {pred.title}
+                      </h3>
                       {/* Status in top right corner */}
                       <div className="flex-shrink-0">
-                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
-                          isActive
-                            ? 'bg-blue-500/90 backdrop-blur-sm text-white'
-                            : 'bg-slate-900/90 backdrop-blur-sm text-slate-300 border border-slate-700/50'
-                        }`}>
+                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${isActive
+                          ? 'bg-blue-500/90 backdrop-blur-sm text-white'
+                          : 'bg-slate-900/90 backdrop-blur-sm text-slate-300 border border-slate-700/50'
+                          }`}>
                           <Clock className="w-3.5 h-3.5" />
-                        {STATUS_NAMES[pred.status]}
+                          {STATUS_NAMES[pred.status]}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
 
                     {/* Metadata: Category and Date */}
                     <div className="flex items-center gap-3 text-sm">
@@ -437,7 +404,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
                           const optionAmount = parseFloat(option.totalAmount);
                           const percentage = totalPool > 0 ? (optionAmount / totalPool) * 100 : 0;
                           const color = getColorForOption(option.description, index);
-                          
+
                           return (
                             <div key={index} className="space-y-1.5">
                               {/* Option text with percentage */}
@@ -449,15 +416,15 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
                                   {percentage.toFixed(1)}% ({formatNumber(option.totalBettors)} votes)
                                 </span>
                               </div>
-                              
+
                               {/* Progress bar */}
                               <div className="relative w-full h-2 bg-slate-800/50 rounded-full overflow-hidden">
-                                <div 
+                                <div
                                   className={`h-full ${color.bgBar} transition-all rounded-full`}
                                   style={{ width: `${percentage}%` }}
                                 />
-                    </div>
-                  </div>
+                              </div>
+                            </div>
                           );
                         })}
                       </div>
@@ -478,10 +445,10 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
                       </div>
 
                       <div className="flex items-center gap-1.5 text-emerald-400">
-                      <TrendingUp className="w-4 h-4" />
+                        <TrendingUp className="w-4 h-4" />
                         <span>+0 {tokenSymbol} earned</span>
+                      </div>
                     </div>
-                  </div>
 
                     {/* End date and actions - Right */}
                     <div className="flex items-center gap-4">
@@ -489,8 +456,8 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
                         <div className="text-slate-400 text-xs mb-0.5">Ends</div>
                         <div className="text-slate-300 text-sm font-medium">
                           {formatEndDate(pred.closesAt)}
-                  </div>
-                </div>
+                        </div>
+                      </div>
 
                       {/* Action icons - Not implemented yet 
                       <div className="flex items-center gap-2">
@@ -516,7 +483,7 @@ export function MyUVotesPage({ onViewPrediction, onCreatePrediction }: MyUVotesP
                     </button>
                       </div> */}
                     </div>
-                    </div>
+                  </div>
                 </div>
               </div>
             );
