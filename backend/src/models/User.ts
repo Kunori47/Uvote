@@ -18,8 +18,27 @@ export const UserModel = {
    * Obtener usuario por dirección de wallet
    */
   async findByAddress(address: string): Promise<User | null> {
-    const result = await supabase?.from('users').select('*').eq('wallet_address', address.toLowerCase());
-    return result?.data?.[0] || null;
+    if (!supabase) {
+      throw new Error('Supabase client not initialized. Check SUPABASE_URL and SUPABASE_ANON_KEY environment variables.');
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('wallet_address', address.toLowerCase())
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        console.error('Supabase error finding user by address:', error);
+        throw new Error(`Database error: ${error.message}`);
+      }
+
+      return data || null;
+    } catch (error: any) {
+      console.error('Error in findByAddress:', error);
+      throw error;
+    }
   },
 
   /**

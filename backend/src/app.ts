@@ -21,30 +21,45 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
-app.use(helmet());
+// CORS debe ir ANTES de otros middlewares
 app.use(cors({
   origin: (origin, callback) => {
+    // Permitir requests sin origin (ej. curl, Postman, server-side)
+    if (!origin) {
+      return callback(null, true);
+    }
+
     const allowedOrigins = [
-      process.env.CORS_ORIGIN || 'http://localhost:5173',
+      process.env.CORS_ORIGIN,
+      'http://localhost:5173',
       'http://localhost:3000',
-    ];
+    ].filter(Boolean); // Remover valores undefined/null
 
     // Permitir cualquier origen de Vercel (desarrollo y producción)
-    const isVercelOrigin = origin && (
-      origin.includes('.vercel.app') ||
-      origin.includes('vercel.app')
-    );
+    const isVercelOrigin = origin.includes('.vercel.app') || origin.includes('vercel.app');
 
-    // Permitir requests sin origin (ej. curl, Postman)
-    if (!origin || allowedOrigins.includes(origin) || isVercelOrigin) {
+    if (allowedOrigins.includes(origin) || isVercelOrigin) {
       callback(null, true);
     } else {
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
+      // En desarrollo, permitir todos los orígenes
+      if (process.env.NODE_ENV !== 'production') {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
     }
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
+// Configurar helmet para que no bloquee CORS
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false,
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -81,6 +96,14 @@ app.use('/api/docs/json', docsRouter);
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Error:', err);
+  
+  // Si es un error de CORS, asegurarse de enviar los headers correctos
+  if (err.message && err.message.includes('CORS')) {
+    return res.status(403).json({
+      error: err.message || 'CORS policy violation',
+    });
+  }
+  
   res.status(err.status || 500).json({
     error: err.message || 'Internal server error',
   });
