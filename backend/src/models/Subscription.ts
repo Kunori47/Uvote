@@ -55,13 +55,27 @@ export const SubscriptionModel = {
    * Contar suscriptores de un creador
    */
   async countSubscribers(creatorAddress: string): Promise<number> {
-    // Usamos count: 'exact' para obtener el número de filas que cumplen la condición
-    const result = await supabase
-      ?.from('subscriptions')
-      .select('*', { count: 'exact', head: true })
-      .eq('creator_address', creatorAddress.toLowerCase());
+    if (!supabase) {
+      throw new Error('Supabase client not initialized. Check SUPABASE_URL and SUPABASE_ANON_KEY environment variables.');
+    }
 
-    return result?.count ?? 0;
+    try {
+      // Usamos count: 'exact' para obtener el número de filas que cumplen la condición
+      const { count, error } = await supabase
+        .from('subscriptions')
+        .select('*', { count: 'exact', head: true })
+        .eq('creator_address', creatorAddress.toLowerCase());
+
+      if (error) {
+        console.error('Supabase error counting subscribers:', error);
+        throw new Error(`Database error: ${error.message}`);
+      }
+
+      return count ?? 0;
+    } catch (error: any) {
+      console.error('Error in countSubscribers:', error);
+      throw error;
+    }
   },
 };
 

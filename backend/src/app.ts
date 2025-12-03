@@ -30,8 +30,14 @@ app.use(cors({
       'http://localhost:3000',
     ];
 
+    // Permitir cualquier origen de Vercel (desarrollo y producción)
+    const isVercelOrigin = origin && (
+      origin.includes('.vercel.app') ||
+      origin.includes('vercel.app')
+    );
+
     // Permitir requests sin origin (ej. curl, Postman)
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || isVercelOrigin) {
       callback(null, true);
     } else {
       callback(new Error(`Origin ${origin} not allowed by CORS`));
