@@ -15,6 +15,7 @@ import imagesRouter from './routes/images';
 import predictionsRouter from './routes/predictions';
 import docsRouter from './routes/docs';
 import swaggerSpec from './swagger';
+import { supabase } from './config/supabase';
 
 dotenv.config();
 
@@ -109,7 +110,12 @@ app.use('/uploads', express.static(path.join(process.cwd(), uploadDir)));
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  const health = {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    database: supabase ? 'connected' : 'not configured',
+  };
+  res.json(health);
 });
 
 // Swagger UI
