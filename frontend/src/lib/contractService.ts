@@ -49,8 +49,19 @@ export const factoryService = {
       }
       return tokenAddress;
     } catch (error: any) {
-      // Si el contrato no está desplegado o el nodo no está corriendo, retornar null
-      console.warn('⚠️  Error obteniendo token del creador:', error.message);
+      // "Creator does not exist" es un error esperado cuando el creador no tiene token
+      const isExpectedError = 
+        error.message?.includes('Creator does not exist') ||
+        error.reason?.includes('Creator does not exist') ||
+        error.data?.includes('Creator does not exist');
+      
+      if (isExpectedError) {
+        // No loguear errores esperados
+        return null;
+      }
+      
+      // Solo loguear errores inesperados
+      console.warn('⚠️  Error obteniendo token del creador:', error.message || error.reason);
       return null;
     }
   },

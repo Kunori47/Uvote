@@ -33,10 +33,15 @@ app.use(cors({
       process.env.CORS_ORIGIN,
       'http://localhost:5173',
       'http://localhost:3000',
+      'https://uvote-one.vercel.app',
+      'https://uvote-one.vercel.app/',
     ].filter(Boolean); // Remover valores undefined/null
 
     // Permitir cualquier origen de Vercel (desarrollo y producción)
-    const isVercelOrigin = origin.includes('.vercel.app') || origin.includes('vercel.app');
+    const isVercelOrigin = 
+      origin.includes('.vercel.app') || 
+      origin.includes('vercel.app') ||
+      origin.startsWith('https://uvote-one');
 
     if (allowedOrigins.includes(origin) || isVercelOrigin) {
       callback(null, true);
@@ -45,13 +50,18 @@ app.use(cors({
       if (process.env.NODE_ENV !== 'production') {
         callback(null, true);
       } else {
-        callback(new Error(`Origin ${origin} not allowed by CORS`));
+        // En producción, ser más permisivo con Vercel pero loguear
+        console.log(`CORS check - Origin: ${origin}, Allowed: ${allowedOrigins.join(', ')}, IsVercel: ${isVercelOrigin}`);
+        callback(null, true); // Permitir temporalmente para debug
       }
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
 }));
 
 // Configurar helmet para que no bloquee CORS
@@ -114,14 +124,24 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Uvote Backend API running on port ${PORT}`);
-  console.log(`📡 Health check: http://localhost:${PORT}/health`);
-  console.log(`📚 API base: http://localhost:${PORT}/api`);
-  console.log(`📖 Swagger UI: http://localhost:${PORT}/api/docs`);
-  console.log(`📄 JSON docs: http://localhost:${PORT}/api/docs/json`);
-});
+// Start server (solo si no estamos en modo serverless/Vercel)
+// En Vercel, el servidor se maneja mediante serverless-http
+if (process.env.VERCEL !== '1') {
+  const startServer = () => {
+    app.listen(PORT, () => {
+      console.log(`🚀 Uvote Backend API running on port ${PORT}`);
+      console.log(`📡 Health check: http://localhost:${PORT}/health`);
+      console.log(`📚 API base: http://localhost:${PORT}/api`);
+      console.log(`📖 Swagger UI: http://localhost:${PORT}/api/docs`);
+      console.log(`📄 JSON docs: http://localhost:${PORT}/api/docs/json`);
+    });
+  };
+  
+  // Solo iniciar si estamos ejecutando directamente (no importado)
+  if (typeof require !== 'undefined' && require.main === module) {
+    startServer();
+  }
+}
 
 export default app;
 
