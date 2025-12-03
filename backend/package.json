@@ -6,9 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/app.ts",
     "build": "tsc",
-    "start": "node dist/app.js",
-    "migrate": "tsx src/migrations/run.ts",
-    "seed": "tsx src/seeds/run.ts"
+    "start": "node dist/app.js"
   },
   "keywords": [
     "uvote",
