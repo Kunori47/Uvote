@@ -21,7 +21,59 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// CORS debe ir ANTES de otros middlewares
+// Middleware manual de CORS (debe ir PRIMERO, antes de cualquier otro middleware)
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  
+  // Permitir CUALQUIER origen de Vercel o localhost
+  const isVercelOrigin = 
+    origin && (
+      origin.includes('.vercel.app') || 
+      origin.includes('vercel.app') ||
+      origin.includes('vercel-dns.com') ||
+      origin.startsWith('https://uvote')
+    );
+  
+  const isLocalhost = origin && (
+    origin.startsWith('http://localhost') || 
+    origin.startsWith('http://127.0.0.1')
+  );
+  
+  const allowedOrigins = [
+    process.env.CORS_ORIGIN,
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:3000',
+  ].filter(Boolean);
+  
+  // Siempre establecer headers de CORS si el origen está permitido o es Vercel/localhost
+  // O si no hay origin (request del servidor)
+  if (!origin || allowedOrigins.includes(origin) || isVercelOrigin || isLocalhost) {
+    // Usar el origin específico si está disponible, de lo contrario usar '*'
+    // Pero si credentials es true, debemos usar el origin específico
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+    
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Type');
+    res.setHeader('Access-Control-Max-Age', '86400'); // 24 horas
+  }
+  
+  // Manejar solicitudes OPTIONS (preflight) - responder inmediatamente
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  
+  next();
+});
+
+// CORS también con la librería cors (como respaldo)
 app.use(cors({
   origin: (origin, callback) => {
     // Permitir requests sin origin (ej. curl, Postman, server-side)
@@ -35,26 +87,19 @@ app.use(cors({
       'http://localhost:3000',
       'http://127.0.0.1:5173',
       'http://127.0.0.1:3000',
-    ].filter(Boolean); // Remover valores undefined/null
+    ].filter(Boolean);
 
-    // Permitir CUALQUIER origen de Vercel (producción, preview, branch deployments)
+    // Permitir CUALQUIER origen de Vercel
     const isVercelOrigin = 
       origin.includes('.vercel.app') || 
       origin.includes('vercel.app') ||
       origin.includes('vercel-dns.com') ||
       origin.startsWith('https://uvote');
 
-    // Permitir localhost en desarrollo
     const isLocalhost = origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1');
 
-    if (allowedOrigins.includes(origin) || isVercelOrigin || isLocalhost) {
-      callback(null, true);
-    } else {
-      // En producción, permitir todos los orígenes de Vercel
-      // Log para debugging
-      console.log(`[CORS] Origin: ${origin}, Allowed: true (Vercel/development)`);
-      callback(null, true);
-    }
+    // Siempre permitir en producción (Vercel)
+    callback(null, true);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
