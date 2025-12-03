@@ -22,48 +22,25 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware manual de CORS (debe ir PRIMERO, antes de cualquier otro middleware)
+// Este middleware SIEMPRE establece los headers de CORS para permitir cualquier origen de Vercel
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   
-  // Permitir CUALQUIER origen de Vercel o localhost
-  const isVercelOrigin = 
-    origin && (
-      origin.includes('.vercel.app') || 
-      origin.includes('vercel.app') ||
-      origin.includes('vercel-dns.com') ||
-      origin.startsWith('https://uvote')
-    );
-  
-  const isLocalhost = origin && (
-    origin.startsWith('http://localhost') || 
-    origin.startsWith('http://127.0.0.1')
-  );
-  
-  const allowedOrigins = [
-    process.env.CORS_ORIGIN,
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:3000',
-  ].filter(Boolean);
-  
-  // Siempre establecer headers de CORS si el origen está permitido o es Vercel/localhost
-  // O si no hay origin (request del servidor)
-  if (!origin || allowedOrigins.includes(origin) || isVercelOrigin || isLocalhost) {
-    // Usar el origin específico si está disponible, de lo contrario usar '*'
-    // Pero si credentials es true, debemos usar el origin específico
-    if (origin) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-    } else {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-    }
-    
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
-    res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Type');
-    res.setHeader('Access-Control-Max-Age', '86400'); // 24 horas
+  // SIEMPRE establecer headers de CORS para cualquier origen
+  // En producción (Vercel), permitimos todos los orígenes de Vercel y localhost
+  if (origin) {
+    // Usar el origin específico para permitir credentials
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  } else {
+    // Si no hay origin (request del servidor), usar wildcard
+    res.setHeader('Access-Control-Allow-Origin', '*');
   }
+  
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Type');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 horas
   
   // Manejar solicitudes OPTIONS (preflight) - responder inmediatamente
   if (req.method === 'OPTIONS') {
@@ -164,9 +141,22 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-// 404 handler
+// 404 handler - asegurar que también tenga headers CORS
 app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
+  // Establecer headers CORS incluso para 404
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  
+  res.status(404).json({ 
+    error: 'Route not found',
+    path: req.path,
+    method: req.method 
+  });
 });
 
 // Start server (solo si no estamos en modo serverless/Vercel)
