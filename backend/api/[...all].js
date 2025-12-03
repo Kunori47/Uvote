@@ -59,15 +59,34 @@ try {
   };
 }
 
-// Export handler with request logging
+// Export handler with request logging and CORS headers
 module.exports = async (req, res) => {
   console.log(`[Serverless] Request: ${req.method} ${req.path}`);
   console.log(`[Serverless] Origin: ${req.headers.origin}`);
+  
+  // ESTABLECER HEADERS CORS INMEDIATAMENTE, antes de cualquier otra cosa
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  
+  // Manejar OPTIONS directamente aquí
+  if (req.method === 'OPTIONS') {
+    console.log('[Serverless] Handling OPTIONS preflight');
+    return res.status(204).end();
+  }
   
   try {
     return await handler(req, res);
   } catch (error) {
     console.error('[Serverless] Handler error:', error);
+    // Asegurar que los headers CORS estén incluso en errores
     if (!res.headersSent) {
       res.status(500).json({
         error: 'Internal server error',

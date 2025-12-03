@@ -125,9 +125,18 @@ app.use('/api/predictions', predictionsRouter);
 // JSON docs (opcional)
 app.use('/api/docs/json', docsRouter);
 
-// Error handling
+// Error handling - asegurar headers CORS en errores
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Error:', err);
+  
+  // Establecer headers CORS incluso en errores
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
   
   // Si es un error de CORS, asegurarse de enviar los headers correctos
   if (err.message && err.message.includes('CORS')) {
