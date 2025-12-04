@@ -33,6 +33,7 @@ app.use(cors({
       process.env.CORS_ORIGIN,
       'http://localhost:5173',
       'http://localhost:3000',
+      'https://uvote-one.vercel.app',
     ].filter(Boolean); // Remover valores undefined/null
 
     // Permitir cualquier origen de Vercel (desarrollo y producción)
@@ -52,7 +53,12 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400, // 24 hours
 }));
+
+// Manejar preflight requests explícitamente
+app.options('*', cors());
 
 // Configurar helmet para que no bloquee CORS
 app.use(helmet({
@@ -96,14 +102,14 @@ app.use('/api/docs/json', docsRouter);
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Error:', err);
-  
+
   // Si es un error de CORS, asegurarse de enviar los headers correctos
   if (err.message && err.message.includes('CORS')) {
     return res.status(403).json({
       error: err.message || 'CORS policy violation',
     });
   }
-  
+
   res.status(err.status || 500).json({
     error: err.message || 'Internal server error',
   });

@@ -72,6 +72,31 @@ npm run build
 npm start
 ```
 
+## 🌐 Deploy en Vercel
+
+El backend está configurado para funcionar como serverless function en Vercel.
+
+### Deploy rápido:
+```bash
+cd backend
+vercel --prod
+```
+
+### Configuración:
+- ✅ `vercel.json` configurado para rutear todas las requests
+- ✅ CORS configurado para permitir requests desde el frontend
+- ✅ Handler serverless en `api/[...all].js`
+
+**⚠️ Importante:** Si tienes problemas con CORS o errores 404 en producción, lee `VERCEL_DEPLOY_FIX.md` para soluciones detalladas.
+
+### Variables de Entorno en Vercel:
+Asegúrate de configurar estas variables en el dashboard de Vercel:
+- `NODE_ENV=production`
+- `CORS_ORIGIN=https://uvote-one.vercel.app`
+- `SUPABASE_URL=tu_supabase_url`
+- `SUPABASE_ANON_KEY=tu_supabase_key`
+
+
 ## 📡 Endpoints
 
 ### Usuarios
