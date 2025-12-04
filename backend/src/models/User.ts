@@ -19,7 +19,9 @@ export const UserModel = {
    */
   async findByAddress(address: string): Promise<User | null> {
     if (!supabase) {
-      throw new Error('Supabase client not initialized. Check SUPABASE_URL and SUPABASE_ANON_KEY environment variables.');
+      const error = new Error('Supabase client not initialized. Check SUPABASE_URL and SUPABASE_ANON_KEY environment variables.');
+      (error as any).code = 'SUPABASE_NOT_CONFIGURED';
+      throw error;
     }
 
     try {
@@ -29,15 +31,30 @@ export const UserModel = {
         .eq('wallet_address', address.toLowerCase())
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      // PGRST116 = no rows returned (usuario no existe) - esto es normal, retornar null
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return null; // Usuario no encontrado, no es un error
+        }
+        // Otro error de Supabase
         console.error('Supabase error finding user by address:', error);
-        throw new Error(`Database error: ${error.message}`);
+        const dbError = new Error(`Database error: ${error.message}`);
+        (dbError as any).code = 'DATABASE_ERROR';
+        (dbError as any).originalError = error;
+        throw dbError;
       }
 
       return data || null;
     } catch (error: any) {
+      // Si ya tiene un code, re-lanzar tal cual
+      if (error.code) {
+        throw error;
+      }
+      // Error inesperado
       console.error('Error in findByAddress:', error);
-      throw error;
+      const unexpectedError = new Error(`Unexpected error: ${error.message}`);
+      (unexpectedError as any).code = 'UNEXPECTED_ERROR';
+      throw unexpectedError;
     }
   },
 

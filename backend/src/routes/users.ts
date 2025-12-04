@@ -41,26 +41,34 @@ router.get('/:address', async (req, res: Response) => {
     });
   } catch (error: any) {
     console.error('Error fetching user:', error);
+    console.error('Error code:', error.code);
+    console.error('Error stack:', error.stack);
     
-    // Si es un error de configuración de Supabase, dar un mensaje más claro
-    if (error.message && error.message.includes('Supabase client not initialized')) {
+    // Si es un error de configuración de Supabase
+    if (error.code === 'SUPABASE_NOT_CONFIGURED' || 
+        (error.message && error.message.includes('Supabase client not initialized'))) {
       return res.status(503).json({ 
         error: 'Database not configured',
-        message: 'Please configure SUPABASE_URL and SUPABASE_ANON_KEY environment variables'
+        message: 'Please configure SUPABASE_URL and SUPABASE_ANON_KEY environment variables in Vercel',
+        code: 'SUPABASE_NOT_CONFIGURED'
       });
     }
     
-    // Si es un error de base de datos, dar un mensaje genérico
-    if (error.message && error.message.includes('Database error')) {
+    // Si es un error de base de datos
+    if (error.code === 'DATABASE_ERROR' || 
+        (error.message && error.message.includes('Database error'))) {
       return res.status(500).json({ 
         error: 'Database error',
-        message: 'An error occurred while querying the database'
+        message: 'An error occurred while querying the database',
+        code: 'DATABASE_ERROR'
       });
     }
     
+    // Error inesperado
     res.status(500).json({ 
       error: 'Internal server error',
-      message: error.message || 'An unexpected error occurred'
+      message: error.message || 'An unexpected error occurred',
+      code: error.code || 'UNKNOWN_ERROR'
     });
   }
 });

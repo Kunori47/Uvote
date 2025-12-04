@@ -10,23 +10,42 @@ let app;
 let handler;
 
 try {
-  const appPath = path.join(process.cwd(), 'build', 'app.js');
   console.log('[Serverless] ===== Initializing =====');
-  console.log('[Serverless] Loading app from:', appPath);
   console.log('[Serverless] CWD:', process.cwd());
-  console.log('[Serverless] Build exists:', fs.existsSync(path.join(process.cwd(), 'build')));
+  console.log('[Serverless] __dirname:', __dirname);
   
-  // Check if build directory exists
-  const buildDir = path.join(process.cwd(), 'build');
-  if (!fs.existsSync(buildDir)) {
-    throw new Error(`Build directory does not exist: ${buildDir}`);
+  // Intentar diferentes rutas posibles para el build
+  const possiblePaths = [
+    path.join(process.cwd(), 'build', 'app.js'),      // Ruta estándar
+    path.join(__dirname, '..', 'build', 'app.js'),    // Relativo a api/
+    path.join(process.cwd(), 'app.js'),                // En la raíz
+    path.join(__dirname, '..', 'app.js'),             // Relativo desde api/
+  ];
+  
+  let appPath = null;
+  let buildDir = null;
+  
+  // Buscar el archivo en las rutas posibles
+  for (const possiblePath of possiblePaths) {
+    console.log('[Serverless] Checking path:', possiblePath);
+    if (fs.existsSync(possiblePath)) {
+      appPath = possiblePath;
+      buildDir = path.dirname(possiblePath);
+      console.log('[Serverless] Found app at:', appPath);
+      break;
+    }
   }
   
-  // Check if app.js exists
-  if (!fs.existsSync(appPath)) {
-    throw new Error(`App file does not exist: ${appPath}`);
+  if (!appPath) {
+    // Listar directorios para debugging
+    console.log('[Serverless] Current directory contents:', fs.readdirSync(process.cwd()));
+    if (fs.existsSync(path.join(process.cwd(), '..'))) {
+      console.log('[Serverless] Parent directory contents:', fs.readdirSync(path.join(process.cwd(), '..')));
+    }
+    throw new Error(`App file not found in any of these paths: ${possiblePaths.join(', ')}`);
   }
   
+  console.log('[Serverless] Loading app from:', appPath);
   const appModule = require(appPath);
   app = appModule.default || appModule;
   
@@ -55,6 +74,7 @@ try {
       error: 'Server configuration error',
       message: error.message,
       path: req.path,
+      cwd: process.cwd(),
     });
   };
 }

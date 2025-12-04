@@ -114,8 +114,19 @@ app.get('/health', (req, res) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
     database: supabase ? 'connected' : 'not configured',
+    environment: process.env.NODE_ENV || 'development',
+    vercel: process.env.VERCEL === '1' ? 'yes' : 'no',
   };
   res.json(health);
+});
+
+// Test endpoint - no requiere base de datos
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    message: 'API is working',
+    timestamp: new Date().toISOString(),
+    supabaseConfigured: !!supabase,
+  });
 });
 
 // Swagger UI
