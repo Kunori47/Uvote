@@ -74,11 +74,7 @@ export const CONTRACT_ADDRESSES = NETWORK_CONFIGS[networkType].contractAddresses
 };
 
 // Símbolo de moneda nativa para mostrar en la UI
-// En Moonbeam/Moonbase mostramos DOT, en local ETH
-export const NATIVE_CURRENCY_SYMBOL =
-  networkType === 'moonbase' || networkType === 'moonbeam'
-    ? 'DOT'
-    : 'ETH';
+export const NATIVE_CURRENCY_SYMBOL = NETWORK_CONFIG.nativeCurrency.symbol;
 
 // Provider para leer datos (sin necesidad de wallet)
 export const getProvider = () => {
