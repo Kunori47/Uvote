@@ -1,5 +1,7 @@
 # Guía de Deploy del Backend en Vercel - Solución CORS y 404
 
+> **⚠️ Si tienes Error 500**: Lee primero `ERROR_500_FIX.md` para configurar las variables de entorno.
+
 ## Problema Identificado
 
 Tienes dos problemas principales:

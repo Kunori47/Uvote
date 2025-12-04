@@ -99,24 +99,55 @@ app.use('/api/predictions', predictionsRouter);
 // JSON docs (opcional)
 app.use('/api/docs/json', docsRouter);
 
-// Error handling
+// Error handling - IMPORTANTE: Los headers CORS deben enviarse incluso en errores
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Log detallado del error para debugging
+  console.error('=== ERROR ===');
+  console.error('Path:', req.path);
+  console.error('Method:', req.method);
   console.error('Error:', err);
+  console.error('Stack:', err.stack);
 
-  // Si es un error de CORS, asegurarse de enviar los headers correctos
+  // Asegurar que los headers CORS estén presentes incluso en errores
+  const origin = req.headers.origin;
+  if (origin && (origin.includes('.vercel.app') || origin.includes('localhost'))) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  }
+
+  // Determinar el código de estado
+  const status = err.status || 500;
+
+  // Mensaje de error más descriptivo en desarrollo
+  const errorMessage = process.env.NODE_ENV === 'production'
+    ? err.message || 'Internal server error'
+    : {
+      message: err.message || 'Internal server error',
+      stack: err.stack,
+      path: req.path,
+    };
+
+  // Si es un error de CORS específico
   if (err.message && err.message.includes('CORS')) {
     return res.status(403).json({
       error: err.message || 'CORS policy violation',
     });
   }
 
-  res.status(err.status || 500).json({
-    error: err.message || 'Internal server error',
+  res.status(status).json({
+    error: errorMessage,
   });
 });
 
-// 404 handler
+// 404 handler - También con headers CORS
 app.use((req, res) => {
+  const origin = req.headers.origin;
+  if (origin && (origin.includes('.vercel.app') || origin.includes('localhost'))) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  }
   res.status(404).json({ error: 'Route not found' });
 });
 

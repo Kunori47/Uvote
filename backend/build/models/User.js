@@ -8,7 +8,11 @@ exports.UserModel = {
      */
     async findByAddress(address) {
         if (!supabase_1.supabase) {
-            throw new Error('Supabase client not initialized. Check SUPABASE_URL and SUPABASE_ANON_KEY environment variables.');
+            const error = new Error('Database not configured. Please set SUPABASE_URL and SUPABASE_ANON_KEY environment variables in Vercel.');
+            console.error('❌ Supabase not initialized. Check environment variables.');
+            console.error('   SUPABASE_URL:', process.env.SUPABASE_URL ? 'Set' : 'Missing');
+            console.error('   SUPABASE_ANON_KEY:', process.env.SUPABASE_ANON_KEY ? 'Set (length: ' + process.env.SUPABASE_ANON_KEY.length + ')' : 'Missing');
+            throw error;
         }
         try {
             const { data, error } = await supabase_1.supabase
