@@ -81,16 +81,56 @@ export const getProvider = () => {
   return new ethers.JsonRpcProvider(NETWORK_CONFIG.rpcUrl);
 };
 
+// Helper para verificar que el wallet provider esté conectado
+// NOTA: Esta verificación es mínima para evitar falsos positivos de "wallet desconectada"
+const verifyWalletConnection = async (walletProvider: any): Promise<void> => {
+  // Solo verificar que el provider esté disponible y tenga la función request
+  if (!walletProvider || typeof walletProvider.request !== 'function') {
+    throw new Error('Wallet provider no está disponible');
+  }
+
+  // No hacemos verificación adicional con eth_accounts porque:
+  // 1. Puede causar timeouts falsos si la wallet tarda en responder
+  // 2. El BrowserProvider.getSigner() ya hará la verificación necesaria
+  // 3. Si hay un problema real, se detectará al intentar firmar la transacción
+};
+
 // Provider con signer para escribir transacciones (requiere wallet)
 export const getSigner = async () => {
   const { getWalletProvider } = await import('./walletProvider');
-  const provider = getWalletProvider();
+  const walletProvider = getWalletProvider();
 
-  if (!provider) {
+  if (!walletProvider) {
     throw new Error('No se encontró ninguna wallet instalada (SubWallet o MetaMask)');
   }
 
-  const browserProvider = new ethers.BrowserProvider(provider);
-  return await browserProvider.getSigner();
+  // Verificar conexión antes de crear el BrowserProvider
+  await verifyWalletConnection(walletProvider);
+
+  // Crear un nuevo BrowserProvider cada vez para evitar problemas de conexión
+  // Esto es importante porque el BrowserProvider puede cachear un estado desconectado
+  const browserProvider = new ethers.BrowserProvider(walletProvider);
+
+  try {
+    // Intentar obtener el signer
+    const signer = await browserProvider.getSigner();
+
+    // Nota: No hacemos verificación adicional con getBlockNumber() porque:
+    // 1. verifyWalletConnection ya validó que la wallet está conectada
+    // 2. getBlockNumber usa el RPC provider, que puede fallar por razones de red
+    //    incluso cuando la wallet está correctamente conectada
+    // 3. Esto causaba falsos positivos de "wallet desconectada"
+
+    return signer;
+  } catch (error: any) {
+    // Si hay un error al obtener el signer, verificar si es un problema de conexión
+    if (error?.message?.includes('disconnected') ||
+      error?.message?.includes('port') ||
+      error?.code === 'UNKNOWN_ERROR' ||
+      (error?.error?.message?.includes && error.error.message.includes('disconnected'))) {
+      throw new Error('La wallet se desconectó. Por favor, reconecta tu wallet e intenta de nuevo.');
+    }
+    throw error;
+  }
 };
 

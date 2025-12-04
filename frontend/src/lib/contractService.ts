@@ -22,20 +22,33 @@ export const factoryService = {
 
   // Obtener instancia con signer (escritura)
   getContractWithSigner: async () => {
-    const signer = await getSigner();
-    return new ethers.Contract(
-      CONTRACT_ADDRESSES.CreatorTokenFactory,
-      CreatorTokenFactoryABI,
-      signer
-    );
-  },
+    try {
+      const signer = await getSigner();
 
-  // Crear token de creador
-  createCreatorToken: async (name: string, symbol: string, price: string) => {
-    const contract = await factoryService.getContractWithSigner();
-    const priceInWei = ethers.parseEther(price);
-    const tx = await contract.createCreatorToken(name, symbol, priceInWei);
-    return await tx.wait();
+      // Nota: No hacemos verificación adicional con getBlockNumber() porque:
+      // 1. getSigner() ya validó que la wallet está conectada
+      // 2. getBlockNumber puede fallar por razones de red (timeout, RPC caído)
+      //    incluso cuando la wallet está correctamente conectada
+      // 3. Esto causaba falsos positivos de "wallet desconectada"
+
+      return new ethers.Contract(
+        CONTRACT_ADDRESSES.CreatorTokenFactory,
+        CreatorTokenFactoryABI,
+        signer
+      );
+    } catch (error: any) {
+      // Si el error ya es un mensaje claro, re-lanzarlo
+      if (error?.message?.includes('desconectó') || error?.message?.includes('conectada')) {
+        throw error;
+      }
+      // Si es un error de conexión, convertirlo a un mensaje claro
+      if (error?.message?.includes('disconnected') ||
+        error?.message?.includes('port') ||
+        error?.code === 'UNKNOWN_ERROR') {
+        throw new Error('La wallet se desconectó. Por favor, reconecta tu wallet e intenta de nuevo.');
+      }
+      throw error;
+    }
   },
 
   // Obtener token de un creador
@@ -70,9 +83,9 @@ export const factoryService = {
   // Obtener info de creador
   getCreatorInfo: async (creatorAddress: string) => {
     const contract = factoryService.getContract();
-    const [tokenAddress, isActive, isBanned, createdAt, bannedAt, reason] = 
+    const [tokenAddress, isActive, isBanned, createdAt, bannedAt, reason] =
       await contract.getCreatorInfo(creatorAddress);
-    
+
     return {
       tokenAddress,
       isActive,
@@ -98,21 +111,21 @@ export const factoryService = {
 
   // Crear token de creador
   createCreatorToken: async (name: string, symbol: string, initialPrice: string) => {
-    const contract = await factoryService.getContractWithSigner();
-    const priceInWei = ethers.parseEther(initialPrice);
-    
-    console.log('🪙 Creando token de creador...');
-    console.log('   Nombre:', name);
-    console.log('   Símbolo:', symbol);
-    console.log('   Precio inicial:', initialPrice, 'ETH');
-    
     try {
+      const contract = await factoryService.getContractWithSigner();
+      const priceInWei = ethers.parseEther(initialPrice);
+
+      console.log('🪙 Creando token de creador...');
+      console.log('   Nombre:', name);
+      console.log('   Símbolo:', symbol);
+      console.log('   Precio inicial:', initialPrice, 'ETH');
+
       const tx = await contract.createCreatorToken(name, symbol, priceInWei);
       console.log('   ✅ Transacción enviada, hash:', tx.hash);
       console.log('   ⏳ Esperando confirmación...');
       const receipt = await tx.wait();
       console.log('   ✅ Token creado exitosamente en bloque:', receipt.blockNumber);
-      
+
       // Extraer la dirección del token del evento
       const event = receipt.logs.find((log: any) => {
         try {
@@ -122,23 +135,59 @@ export const factoryService = {
           return false;
         }
       });
-      
+
       if (event) {
         const parsed = contract.interface.parseLog(event);
         const tokenAddress = parsed?.args?.tokenAddress;
         console.log('   🆔 Dirección del token:', tokenAddress);
         return { receipt, tokenAddress };
       }
-      
+
       return { receipt, tokenAddress: null };
     } catch (error: any) {
       console.error('   ❌ Error creando token:', error);
-      if (error.code === 4001 || error.message?.includes('rejected')) {
+
+      // Detectar error específico de puerto desconectado (problema con extensión del navegador)
+      const isPortDisconnectedError =
+        error?.message?.includes('disconnected port') ||
+        error?.error?.message?.includes('disconnected port') ||
+        (typeof error?.error === 'object' && error.error?.message?.includes('disconnected port'));
+
+      if (isPortDisconnectedError) {
+        throw new Error('La conexión con la wallet se perdió. Por favor: 1) Recarga la extensión de wallet en chrome://extensions, 2) Refresca esta página, 3) Reconecta tu wallet');
+      }
+
+      // Detectar errores de conexión desconectada - múltiples formas de detectarlo
+      const isDisconnectedError =
+        error?.message?.includes('disconnected') ||
+        error?.message?.includes('port') ||
+        error?.code === 'UNKNOWN_ERROR' ||
+        (error?.error?.message?.includes && error.error.message.includes('disconnected')) ||
+        (error?.error?.message?.includes && error.error.message.includes('port')) ||
+        (typeof error?.error === 'object' && error.error?.message?.includes('disconnected')) ||
+        (typeof error?.error === 'object' && error.error?.message?.includes('port'));
+
+      if (isDisconnectedError) {
+        throw new Error('La wallet se desconectó. Por favor, reconecta tu wallet e intenta de nuevo.');
+      }
+
+      // Manejar errores de wallet no conectada
+      if (error?.message?.includes('Wallet no está conectada') ||
+        error?.message?.includes('No se encontró ninguna wallet')) {
+        throw new Error('Wallet no está conectada. Por favor, conecta tu wallet primero.');
+      }
+
+      // Manejar rechazo de transacción
+      if (error.code === 4001 || error.message?.includes('rejected') || error.message?.includes('denied')) {
         throw new Error('Transacción rechazada por el usuario');
       }
+
+      // Manejar errores de contrato
       if (error.reason) {
         throw new Error(error.reason);
       }
+
+      // Re-lanzar otros errores
       throw error;
     }
   },
@@ -170,7 +219,7 @@ export const creatorTokenService = {
   getTokenInfo: async (tokenAddress: string) => {
     const contract = creatorTokenService.getContract(tokenAddress);
     const [name, symbol, totalSupply, price, creator] = await contract.getTokenInfo();
-    
+
     return {
       name,
       symbol,
@@ -191,12 +240,12 @@ export const creatorTokenService = {
   approve: async (tokenAddress: string, spenderAddress: string, amount: string) => {
     const contract = await creatorTokenService.getContractWithSigner(tokenAddress);
     const amountInWei = ethers.parseUnits(amount, 18);
-    
+
     console.log('📤 Enviando transacción approve...');
     console.log('   tokenAddress:', tokenAddress);
     console.log('   spenderAddress:', spenderAddress);
     console.log('   amountInWei:', amountInWei.toString());
-    
+
     try {
       const tx = await contract.approve(spenderAddress, amountInWei);
       console.log('   ✅ Transacción enviada, hash:', tx.hash);
@@ -244,39 +293,69 @@ export const tokenExchangeService = {
 
   // Comprar tokens (con aprobación automática para PredictionMarket)
   buyTokens: async (creatorToken: string, nativeAmount: string) => {
-    const contract = await tokenExchangeService.getContractWithSigner();
-    const amountInWei = ethers.parseEther(nativeAmount);
-    
-    console.log('💰 Comprando tokens...');
-    console.log('   Token:', creatorToken);
-    console.log('   Cantidad nativa:', nativeAmount, 'ETH');
-    
-    // 1. Comprar tokens
-    const buyTx = await contract.buyTokens(creatorToken, { value: amountInWei });
-    console.log('   ✅ Compra enviada, esperando confirmación...');
-    const buyReceipt = await buyTx.wait();
-    console.log('   ✅ Tokens comprados exitosamente');
-    
-    // 2. Aprobar automáticamente para PredictionMarket (cantidad ilimitada)
-    // Esto evita que el usuario tenga que pagar gas cada vez que apuesta
-    const marketAddress = CONTRACT_ADDRESSES.PredictionMarket;
-    console.log('   🔐 Aprobando tokens automáticamente para PredictionMarket...');
-    console.log('   (Esto permite apostar sin pagar gas por aprobación)');
-    
     try {
-      const tokenContract = await creatorTokenService.getContractWithSigner(creatorToken);
-      // Aprobar cantidad ilimitada (MaxUint256) para que no tenga que aprobar de nuevo
-      const approveTx = await tokenContract.approve(marketAddress, ethers.MaxUint256);
-      console.log('   ✅ Aprobación enviada...');
-      const approveReceipt = await approveTx.wait();
-      console.log('   ✅ Aprobación completada - Ahora puedes apostar sin pagar gas por aprobación!');
-      
-      return buyReceipt; // Retornar el receipt de la compra
-    } catch (approveError: any) {
-      console.warn('   ⚠️  No se pudo aprobar automáticamente:', approveError.message);
-      console.warn('   ℹ️  Tendrás que aprobar manualmente antes de apostar');
-      // No fallar la compra si la aprobación falla, solo advertir
-      return buyReceipt;
+      const contract = await tokenExchangeService.getContractWithSigner();
+      const amountInWei = ethers.parseEther(nativeAmount);
+
+      console.log('💰 Comprando tokens...');
+      console.log('   Token:', creatorToken);
+      console.log('   Cantidad nativa:', nativeAmount, 'ETH');
+
+      // 1. Comprar tokens
+      const buyTx = await contract.buyTokens(creatorToken, { value: amountInWei });
+      console.log('   ✅ Compra enviada, esperando confirmación...');
+      const buyReceipt = await buyTx.wait();
+      console.log('   ✅ Tokens comprados exitosamente');
+
+      // 2. Aprobar automáticamente para PredictionMarket (cantidad ilimitada)
+      // Esto evita que el usuario tenga que pagar gas cada vez que apuesta
+      const marketAddress = CONTRACT_ADDRESSES.PredictionMarket;
+      console.log('   🔐 Aprobando tokens automáticamente para PredictionMarket...');
+      console.log('   (Esto permite apostar sin pagar gas por aprobación)');
+
+      try {
+        const tokenContract = await creatorTokenService.getContractWithSigner(creatorToken);
+        // Aprobar cantidad ilimitada (MaxUint256) para que no tenga que aprobar de nuevo
+        const approveTx = await tokenContract.approve(marketAddress, ethers.MaxUint256);
+        console.log('   ✅ Aprobación enviada...');
+        const approveReceipt = await approveTx.wait();
+        console.log('   ✅ Aprobación completada - Ahora puedes apostar sin pagar gas por aprobación!');
+
+        return buyReceipt; // Retornar el receipt de la compra
+      } catch (approveError: any) {
+        console.warn('   ⚠️  No se pudo aprobar automáticamente:', approveError.message);
+        console.warn('   ℹ️  Tendrás que aprobar manualmente antes de apostar');
+        // No fallar la compra si la aprobación falla, solo advertir
+        return buyReceipt;
+      }
+    } catch (error: any) {
+      console.error('   ❌ Error comprando tokens:', error);
+
+      // Manejar errores de conexión de wallet
+      if (error?.message?.includes('disconnected') ||
+        error?.message?.includes('port') ||
+        error?.code === 'UNKNOWN_ERROR' && error?.error?.message?.includes('disconnected')) {
+        throw new Error('La wallet se desconectó. Por favor, reconecta tu wallet e intenta de nuevo.');
+      }
+
+      // Manejar errores de wallet no conectada
+      if (error?.message?.includes('Wallet no está conectada') ||
+        error?.message?.includes('No se encontró ninguna wallet')) {
+        throw new Error('Wallet no está conectada. Por favor, conecta tu wallet primero.');
+      }
+
+      // Manejar rechazo de transacción
+      if (error.code === 4001 || error.message?.includes('rejected') || error.message?.includes('denied')) {
+        throw new Error('Transacción rechazada por el usuario');
+      }
+
+      // Manejar errores de contrato
+      if (error.reason) {
+        throw new Error(error.reason);
+      }
+
+      // Re-lanzar otros errores
+      throw error;
     }
   },
 
@@ -293,7 +372,7 @@ export const tokenExchangeService = {
     const contract = tokenExchangeService.getContract();
     const amountInWei = ethers.parseEther(nativeAmount);
     const [tokensAmount, fee] = await contract.calculateBuyAmount(creatorToken, amountInWei);
-    
+
     return {
       tokensAmount: ethers.formatUnits(tokensAmount, 18),
       fee: ethers.formatEther(fee),
@@ -305,7 +384,7 @@ export const tokenExchangeService = {
     const contract = tokenExchangeService.getContract();
     const amountInWei = ethers.parseUnits(tokenAmount, 18);
     const [nativeAmount, fee] = await contract.calculateSellAmount(creatorToken, amountInWei);
-    
+
     return {
       nativeAmount: ethers.formatEther(nativeAmount),
       fee: ethers.formatEther(fee),
@@ -360,7 +439,7 @@ export const predictionMarketService = {
   getPrediction: async (predictionId: string) => {
     const contract = predictionMarketService.getContract();
     const prediction = await contract.predictions(predictionId);
-    
+
     return {
       id: predictionId,
       creator: prediction.creator,
@@ -384,7 +463,7 @@ export const predictionMarketService = {
     const contract = predictionMarketService.getContract();
     const options = [];
     let index = 0;
-    
+
     while (true) {
       try {
         const option = await contract.getBetOption(predictionId, index);
@@ -399,7 +478,7 @@ export const predictionMarketService = {
         break;
       }
     }
-    
+
     return options;
   },
 
@@ -407,7 +486,7 @@ export const predictionMarketService = {
   getUserBets: async (predictionId: string, userAddress: string) => {
     const contract = predictionMarketService.getContract();
     const bets = await contract.getUserBets(predictionId, userAddress);
-    
+
     return bets.map((bet: any) => ({
       bettor: bet.bettor,
       optionIndex: Number(bet.optionIndex),
@@ -421,12 +500,12 @@ export const predictionMarketService = {
     const contract = await predictionMarketService.getContractWithSigner();
     const amountInWei = ethers.parseUnits(tokenAmount, 18);
     const predictionIdNum = BigInt(predictionId); // Convertir a BigInt para uint256
-    
+
     console.log('📤 Enviando transacción placeBet...');
     console.log('   predictionId:', predictionIdNum.toString());
     console.log('   optionIndex:', optionIndex);
     console.log('   amountInWei:', amountInWei.toString());
-    
+
     try {
       const tx = await contract.placeBet(predictionIdNum, optionIndex, amountInWei);
       console.log('   ✅ Transacción enviada, hash:', tx.hash);
@@ -469,10 +548,10 @@ export const predictionMarketService = {
   // Confirmar automáticamente si el cooldown terminó
   autoConfirmOutcome: async (predictionId: string) => {
     const contract = await predictionMarketService.getContractWithSigner();
-    
+
     console.log('⏰ Verificando si el cooldown terminó...');
     console.log('   Predicción ID:', predictionId);
-    
+
     try {
       const tx = await contract.autoConfirmOutcome(predictionId);
       console.log('   ✅ Transacción enviada, hash:', tx.hash);
@@ -482,9 +561,9 @@ export const predictionMarketService = {
       return receipt;
     } catch (error: any) {
       // Si el error es que el cooldown no terminó o ya está confirmada, no es un error crítico
-      if (error.reason?.includes('Cooldown not finished') || 
-          error.reason?.includes('Not in cooldown') ||
-          error.reason?.includes('Prediction not confirmed')) {
+      if (error.reason?.includes('Cooldown not finished') ||
+        error.reason?.includes('Not in cooldown') ||
+        error.reason?.includes('Prediction not confirmed')) {
         console.log('   ℹ️  El cooldown aún no terminó o ya está confirmada');
         return null;
       }
@@ -502,13 +581,13 @@ export const predictionMarketService = {
     duration: number // en segundos
   ) => {
     const contract = await predictionMarketService.getContractWithSigner();
-    
+
     console.log('🎯 Creando predicción...');
     console.log('   Token del creador:', creatorToken);
     console.log('   Título:', title);
     console.log('   Opciones:', optionDescriptions);
     console.log('   Duración:', duration, 'segundos');
-    
+
     try {
       const tx = await contract.createPrediction(
         creatorToken,
@@ -521,7 +600,7 @@ export const predictionMarketService = {
       console.log('   ⏳ Esperando confirmación...');
       const receipt = await tx.wait();
       console.log('   ✅ Predicción creada exitosamente en bloque:', receipt.blockNumber);
-      
+
       // Extraer el ID de la predicción del evento
       const event = receipt.logs.find((log: any) => {
         try {
@@ -531,14 +610,14 @@ export const predictionMarketService = {
           return false;
         }
       });
-      
+
       if (event) {
         const parsed = contract.interface.parseLog(event);
         const predictionId = parsed?.args?.predictionId?.toString();
         console.log('   🆔 ID de la predicción:', predictionId);
         return { receipt, predictionId };
       }
-      
+
       return { receipt, predictionId: null };
     } catch (error: any) {
       console.error('   ❌ Error creando predicción:', error);
@@ -556,10 +635,10 @@ export const predictionMarketService = {
   // Cerrar predicción manualmente (para creadores)
   closePrediction: async (predictionId: string) => {
     const contract = await predictionMarketService.getContractWithSigner();
-    
+
     console.log('🔒 Cerrando predicción...');
     console.log('   Predicción ID:', predictionId);
-    
+
     try {
       const tx = await contract.closePrediction(predictionId);
       console.log('   ✅ Transacción enviada, hash:', tx.hash);
@@ -581,11 +660,11 @@ export const predictionMarketService = {
 
   resolvePrediction: async (predictionId: string, winningOptionIndex: number) => {
     const contract = await predictionMarketService.getContractWithSigner();
-    
+
     console.log('🏁 Resolviendo predicción...');
     console.log('   Predicción ID:', predictionId);
     console.log('   Opción ganadora:', winningOptionIndex);
-    
+
     try {
       const tx = await contract.resolvePrediction(predictionId, winningOptionIndex);
       console.log('   ✅ Transacción enviada, hash:', tx.hash);
@@ -615,11 +694,11 @@ export const predictionMarketService = {
   calculatePotentialWinnings: async (predictionId: string, optionIndex: number, betAmount: string) => {
     const prediction = await predictionMarketService.getPrediction(predictionId);
     const options = await predictionMarketService.getPredictionOptions(predictionId);
-    
+
     const totalPool = parseFloat(prediction.totalPool);
     const optionTotal = parseFloat(options[optionIndex].totalAmount);
     const bet = parseFloat(betAmount);
-    
+
     // Si no hay perdedores, devolver la apuesta
     const losingPool = totalPool - optionTotal;
     if (losingPool <= 0) {
@@ -629,11 +708,11 @@ export const predictionMarketService = {
         multiplier: '1.00',
       };
     }
-    
+
     // Los ganadores reciben TODO el pool de perdedores proporcionalmente
     // Recompensa = apuesta + proporción del pool de perdedores
     const winnings = bet + ((bet * losingPool) / optionTotal);
-    
+
     return {
       winnings: winnings.toFixed(4),
       profit: (winnings - bet).toFixed(4),
@@ -645,27 +724,27 @@ export const predictionMarketService = {
   calculateClaimableReward: async (predictionId: string, userAddress: string) => {
     const bets = await predictionMarketService.getUserBets(predictionId, userAddress);
     const prediction = await predictionMarketService.getPrediction(predictionId);
-    
+
     // Solo calcular si la predicción está confirmada y tiene un ganador
     if (prediction.status !== 4 || prediction.winningOption === null) {
       return { claimable: '0', hasWinningBets: false };
     }
-    
+
     let totalClaimable = 0;
     let hasWinningBets = false;
-    
+
     for (const bet of bets) {
       // Solo contar apuestas ganadoras que no han sido reclamadas
       if (bet.optionIndex === prediction.winningOption && !bet.claimed) {
         hasWinningBets = true;
-        
+
         // Calcular recompensa para esta apuesta
         const options = await predictionMarketService.getPredictionOptions(predictionId);
         const totalPool = parseFloat(prediction.totalPool);
         const winningPool = parseFloat(options[prediction.winningOption].totalAmount);
         const losingPool = totalPool - winningPool;
         const betAmount = parseFloat(bet.amount);
-        
+
         if (losingPool <= 0) {
           // Si no hubo perdedores, devolver la apuesta
           totalClaimable += betAmount;
@@ -675,7 +754,7 @@ export const predictionMarketService = {
         }
       }
     }
-    
+
     return {
       claimable: totalClaimable.toFixed(4),
       hasWinningBets,

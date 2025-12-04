@@ -6,6 +6,7 @@ import { usePredictionDetail } from '../hooks/usePredictionDetail';
 import { useWallet } from '../hooks/useWallet';
 import { useSubscriptions } from '../hooks/useSubscriptions';
 import { predictionMarketService, creatorTokenService } from '../lib/contractService';
+import { getWalletProvider } from '../lib/walletProvider';
 
 interface PredictionDetailPageProps {
   predictionId: string;

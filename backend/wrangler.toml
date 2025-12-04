@@ -5,3 +5,4 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 # Environment variables should be set in Cloudflare Dashboard
+
