@@ -151,14 +151,16 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Uvote Backend API running on port ${PORT}`);
-  console.log(`📡 Health check: http://localhost:${PORT}/health`);
-  console.log(`📚 API base: http://localhost:${PORT}/api`);
-  console.log(`📖 Swagger UI: http://localhost:${PORT}/api/docs`);
-  console.log(`📄 JSON docs: http://localhost:${PORT}/api/docs/json`);
-});
+// Start server only if run directly (not imported)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Uvote Backend API running on port ${PORT}`);
+    console.log(`📡 Health check: http://localhost:${PORT}/health`);
+    console.log(`📚 API base: http://localhost:${PORT}/api`);
+    console.log(`📖 Swagger UI: http://localhost:${PORT}/api/docs`);
+    console.log(`📄 JSON docs: http://localhost:${PORT}/api/docs/json`);
+  });
+}
 
 export default app;
 
