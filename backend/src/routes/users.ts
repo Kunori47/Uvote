@@ -12,12 +12,6 @@ const router = Router();
 router.get('/:address', async (req, res: Response) => {
   try {
     const address = req.params.address.toLowerCase();
-    
-    // Verificar que la dirección sea válida
-    if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
-      return res.status(400).json({ error: 'Invalid address format' });
-    }
-    
     const user = await UserModel.findByAddress(address);
     
     if (!user) {
@@ -26,13 +20,8 @@ router.get('/:address', async (req, res: Response) => {
 
     // Obtener contador de suscriptores si es creador
     let subscriberCount = 0;
-    try {
-      if (user.is_creator) {
-        subscriberCount = await SubscriptionModel.countSubscribers(address);
-      }
-    } catch (subError: any) {
-      // Si falla obtener suscriptores, continuar sin ese dato
-      console.warn('Error getting subscriber count:', subError.message);
+    if (user.is_creator) {
+      subscriberCount = await SubscriptionModel.countSubscribers(address);
     }
 
     res.json({
@@ -41,35 +30,7 @@ router.get('/:address', async (req, res: Response) => {
     });
   } catch (error: any) {
     console.error('Error fetching user:', error);
-    console.error('Error code:', error.code);
-    console.error('Error stack:', error.stack);
-    
-    // Si es un error de configuración de Supabase
-    if (error.code === 'SUPABASE_NOT_CONFIGURED' || 
-        (error.message && error.message.includes('Supabase client not initialized'))) {
-      return res.status(503).json({ 
-        error: 'Database not configured',
-        message: 'Please configure SUPABASE_URL and SUPABASE_ANON_KEY environment variables in Vercel',
-        code: 'SUPABASE_NOT_CONFIGURED'
-      });
-    }
-    
-    // Si es un error de base de datos
-    if (error.code === 'DATABASE_ERROR' || 
-        (error.message && error.message.includes('Database error'))) {
-      return res.status(500).json({ 
-        error: 'Database error',
-        message: 'An error occurred while querying the database',
-        code: 'DATABASE_ERROR'
-      });
-    }
-    
-    // Error inesperado
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: error.message || 'An unexpected error occurred',
-      code: error.code || 'UNKNOWN_ERROR'
-    });
+    res.status(500).json({ error: error.message });
   }
 });
 
