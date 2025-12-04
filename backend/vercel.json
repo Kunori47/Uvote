@@ -1,7 +1,9 @@
 {
   "version": 2,
   "buildCommand": "npm run vercel-build",
+  "installCommand": "npm install",
   "framework": null,
+  "outputDirectory": "public",
   "headers": [
     {
       "source": "/api/(.*)",
